@@ -1,0 +1,612 @@
+# -*- coding: utf-8 -*-
+"""
+This is the PVcircuit Package. 
+    pvcircuit.Tandem3T()   # properties of a 3T tandem including 2 junctions
+"""
+
+import math   #simple math
+from time import time
+import numpy as np   #arrays
+import matplotlib.pyplot as plt   #plotting
+from scipy.optimize import brentq    #root finder
+#from scipy.special import lambertw, gammaincc, gamma   #special functions
+import scipy.constants as con   #physical constants
+from pvcircuit.junction import *
+from pvcircuit.iv3T import *
+                
+class Tandem3T(object): 
+    '''
+    Tandem3T class for optoelectronic model
+    '''
+
+    def __init__(self, name='Tandem3T', TC=TC_REF, Egtop=1.8, Egbot=1.4, Rz=1, pnt=-1, pnr=1):
+        # user inputs
+        # default s-type n-on-p
+        
+        self.name = name
+        self.TC = TC
+        self.Rz = Rz
+        self.top = Junction(name='top', Eg=Egtop, TC=TC, \
+                            Jext = 0.013, pn=pnt, beta=0.)
+        self.bot = Junction(name='bot', Eg=Egbot, TC=TC, \
+                            Jext = 0.01, pn=pnr, RBB='JFG') 
+            
+        #WB417
+        self.Rz = 2.3
+        self.top.update(Eg=1.87, J0ratio = [ 80., 22.], Jext = 0.0131, 
+                        Gsh=1e-8)   
+        self.bot.update(Eg=1.419, J0ratio = [10., 15.], Jext = 0.0128, area=0.9,
+                        Gsh = 5e-5, Rser =0.2, beta=5.)
+        #self.bot.RBB_dict =  {'method':'JFG', 'mrb':10., 'J0rb':0.5, 'Vrb':0.}
+       
+    def __str__(self):
+        '''
+        format concise description of Tandem3T object
+        '''
+        
+        #attr_list = self.__dict__.keys()
+        #attr_dict = self.__dict__.items()
+        #print(attr_list)
+        
+        strout=self.name + ": <tandem.Tandem3T class>"
+        strout += '\nT = {0:.1f} C, Rz= {1:g} Ω, Rt= {2:g} Ω, Rr = {3:g} Ω'\
+            .format(self.TC,self.Rz,self.top.Rser,self.bot.Rser)
+        strout += '\n\n'+str(self.top)
+        strout += '\n\n'+str(self.bot)
+        return strout
+    
+    def __repr__(self):
+        return str(self)
+    
+    @property
+    def area(self):
+        # largest junction area
+        return max(self.top.area,self.bot.area)
+    
+    def V3T(self,iv3T):
+        '''
+        calcuate iv3T.(Vzt,Vrz,Vtr) from iv3T.(Iro,Izo,Ito)
+        input class tandem.IV3T object 'iv3T'
+        '''
+        
+        top = self.top   # top Junction
+        bot = self.bot   # bot Junction 
+  
+        inlist = iv3T.Idevlist.copy()
+        outlist = iv3T.Vdevlist.copy()
+        err = iv3T.init(inlist,outlist)    # initialize output
+        if err: return err
+
+        i = 0
+        for index in np.ndindex(iv3T.shape):
+        #for Ito, Iro, Izo in zip(iv3T.Ito.flat, iv3T.Iro.flat, iv3T.Izo.flat):
+            # loop through points
+            
+            Ito = iv3T.Ito.flat[i]
+            Iro = iv3T.Iro.flat[i]
+            Izo = iv3T.Izo.flat[i]
+                # loop through points
+            kzero = Ito + Iro + Izo
+            if not math.isclose(kzero, 0., abs_tol=1e-5):
+                #print(i, 'Kirchhoff violation', kzero)
+                iv3T.Vzt[i] = np.nan
+                iv3T.Vrz[i] = np.nan
+                iv3T.Vtr[i] = np.nan
+                i += 1
+                continue
+           
+            #input current densities
+            Jt = Ito / top.area
+            Jr = Iro / bot.area
+            Jz = Izo / self.area
+            
+            # top Junction
+            top.JLC = 0.
+            Vtmid = top.Vdiode(Jt * top.pn) * top.pn
+            Vt = Vtmid + Jt * top.Rser
+            
+            # bot Junction
+            bot.JLC = bot.beta * top.Jem(Vtmid * top.pn)    # top to bot LC
+            Vrmid = bot.Vdiode(Jr * bot.pn) * bot.pn
+            Vr = Vrmid + Jr * bot.Rser
+            
+            if top.beta > 0.:   # repeat if backwards LC
+                # top Junction
+                top.JLC = top.beta * bot.Jem(Vrmid * bot.pn)    # bot to top LC
+                Vtmid = top.Vdiode(Jt * top.pn) * top.pn
+                Vt = Vtmid + Jt * top.Rser
+                
+                # bot Junction
+                bot.JLC = bot.beta * top.Jem(Vtmid * top.pn)    # top to bot LC
+                Vrmid = bot.Vdiode(Jr * bot.pn) * bot.pn
+                Vr = Vrmid + Jr * bot.Rser
+                
+            
+            # extra Z contact
+            Vz = Jz * self.Rz
+            
+            #items in array = difference of local variable
+            iv3T.Vzt.flat[i] = Vz - Vt  
+            iv3T.Vrz.flat[i] = Vr - Vz
+            iv3T.Vtr.flat[i] = Vt - Vr
+            i += 1
+         
+        iv3T.Pcalc()    #dev2load defaults
+        
+        return 0       
+    
+    def J3Tabs(self,iv3T):
+        '''
+        calcuate (Jro,Jzo,Jto) mapped -> iv3T.(Iro,Izo,Ito)
+        from ABSOLUTE (Vz,Vr,Vt) mapped <- iv3T.(Vzt,Vrz,Vtr) 
+        input class tandem.IV3T object 'iv3T'
+        '''
+        
+        top = self.top   # top Junction
+        bot = self.bot   # bot Junction 
+  
+        inlist = iv3T.Vdevlist.copy()   #['Vzt','Vrz','Vtr']
+        outlist = iv3T.Idevlist.copy()
+        err = iv3T.init(inlist,outlist)   # initialize output
+        if err: return err
+
+        i = 0
+        for index in np.ndindex(iv3T.shape):
+        #for Vz, Vr, Vt in zip(iv3T.Vzt.flat, iv3T.Vrz.flat, iv3T.Vtr.flat):
+            # loop through points
+            # ABSOLUTE (Vz,Vr,Vt) mapped <- iv3T.(Vzt,Vrz,Vtr)
+
+            Vz = iv3T.Vzt.flat[i]
+            Vr = iv3T.Vrz.flat[i]
+            Vt = iv3T.Vtr.flat[i]
+            # top Junction
+            top.JLC = 0.
+            Vtmid = top.Vmid(Vt * top.pn) * top.pn  
+            Jt = -top.Jparallel(Vtmid * top.pn,top.Jphoto) * top.pn
+         
+            # bot Junction
+            bot.JLC = bot.beta * top.Jem(Vtmid)   # top to bot LC
+            Vrmid = bot.Vmid(Vr * bot.pn) * bot.pn  
+            Jr = -bot.Jparallel(Vrmid * bot.pn ,bot.Jphoto) * bot.pn
+            
+            if top.beta > 0.:   # repeat if backwards LC
+                # top Junction
+                top.JLC = top.beta * bot.Jem(Vrmid)    # bot to top LC
+                Vtmid = top.Vmid(Vt * top.pn) * top.pn  
+                Jt = -top.Jparallel(Vtmid * top.pn,top.Jphoto) * top.pn
+             
+                # bot Junction
+                bot.JLC = bot.beta * top.Jem(Vtmid)   # top to bot LC
+                Vrmid = bot.Vmid(Vr * bot.pn) * bot.pn  
+                Jr = -bot.Jparallel(Vrmid * bot.pn ,bot.Jphoto) * bot.pn
+ 
+            # extra Z contact
+            if self.Rz == 0.:
+                Jz = (-Jt* top.area - Jr* bot.area ) / self.area   # determine from kirchhoff    
+            else:
+                Jz = Vz / self.Rz   # determine from Rz
+            
+            # output (Jro,Jzo,Jto) mapped -> iv3T.(Iro,Izo,Ito)
+            iv3T.Iro.flat[i] = Jr
+            iv3T.Izo.flat[i] = Jz
+            iv3T.Ito.flat[i] = Jt
+            i += 1
+                
+        return 0
+    
+    def _dI(self,Vz,Vzt,Vrz,temp3T):
+        '''
+        return dI = Iro + Izo + Ito
+        function solved for dI(Vz)=0 in I3rel
+        input Vzt, Vrz, temp3T <IV3T class> container for calculation
+        '''
+        top = self.top   # top Junction
+        bot = self.bot   # bot Junction 
+
+        Vt = Vz - Vzt
+        Vr = Vrz + Vz
+
+        temp3T.update(Vzt=Vz, Vrz=Vr, Vtr=Vt)
+        
+        self.J3Tabs(temp3T)   #calcuate (Jro,Jzo,Jto) from (Vz,Vr,Vt)
+
+        # (Jro,Jzo,Jto)  -> (Iro,Izo,Ito)
+        Jro = temp3T.Iro[0]
+        Jzo = temp3T.Izo[0]
+        Jto = temp3T.Ito[0]
+        
+        Iro = Jro * bot.area
+        Izo = Jzo * self.area
+        Ito = Jto * top.area
+        
+        return Iro + Izo + Ito
+    
+    def I3Trel(self,iv3T):
+        '''
+        calcuate (Jro,Jzo,Jto) mapped -> iv3T.(Iro,Izo,Ito)
+        from RELATIVE iv3T.(Vzt,Vrz,Vtr) ignoring Vtr
+        input class tandem.IV3T object 'iv3T'
+        '''
+        
+        top = self.top   # top Junction
+        bot = self.bot   # bot Junction 
+
+
+        inlist = iv3T.Vdevlist.copy()   #['Vzt','Vrz','Vtr']
+        outlist = iv3T.Idevlist.copy()
+        err = iv3T.init(inlist,outlist)   # initialize output
+        if err: return err
+
+        temp3T = IV3T(name='temp3T', shape=1, meastype = iv3T.meastype)
+        
+        # remember resistances
+        Rz = self.Rz
+        Rt = top.Rser
+        Rr = bot.Rser
+
+        i = 0
+        for index in np.ndindex(iv3T.shape):
+        #for Vzt, Vrz in zip(iv3T.Vzt.flat, iv3T.Vrz.flat):
+            # loop through points  
+            
+            Vzt = iv3T.Vzt.flat[i]
+            Vrz = iv3T.Vrz.flat[i]
+            # initial guess Rz=0 -> Vz=0
+            self.Rz = 0.
+            top.Rser = Rt + Rz
+            bot.Rser = Rr + Rz
+            Vz = 0.
+            Vt = Vz - Vzt
+            Vr = Vrz + Vz
+            temp3T.update(Vzt=Vz, Vrz=Vr, Vtr=Vt)
+            self.J3Tabs(temp3T)
+            
+            Jro = temp3T.Iro[0]
+            Jzo = temp3T.Izo[0]
+            Jto = temp3T.Ito[0]
+            Vzmax = Jzo * Rz
+            
+            # reset resistance
+            self.Rz = Rz
+            top.Rser = Rt
+            bot.Rser = Rr
+            
+            # iterate with varying Vz
+            # bracket
+            Vmin = 0.5
+            if math.isfinite(Vzmax) and (abs(Vzmax) > VTOL):
+                Vlo = min(0, 1.2 * Vzmax)
+                Vhi = max(0, 1.2 * Vzmax)
+            else:
+                Vlo = -Vmin
+                Vhi = Vmin
+            dIlo = self._dI(Vlo,Vzt,Vrz,temp3T)
+            dIhi = self._dI(Vhi,Vzt,Vrz,temp3T)
+            
+            count = 0
+            while dIlo * dIhi > 0.:
+                #print('I3Trel not bracket', i, count, Vlo, Vhi, dIlo, dIhi)
+                Vlo -= 0.1
+                Vhi += 0.1
+                dIlo = self._dI(Vlo,Vzt,Vrz,temp3T)
+                dIhi = self._dI(Vhi,Vzt,Vrz,temp3T)
+                if count > 2: break
+                count += 1
+          
+            if dIlo * dIhi > 0.:
+                #print('I3Trel not bracket', i, count, Vlo, Vhi, dIlo, dIhi)
+                i += 1
+                continue
+                
+            if Rz > 0.:      
+                try:   #find Vz that satisfies dJ(Vz) = Jro+Jzo+Jto = 0
+                    Vz = brentq(self._dI, Vlo, Vhi, args=(Vzt,Vrz,temp3T),
+                                   xtol=VTOL, rtol=EPSREL, maxiter=MAXITER,
+                                   full_output=False, disp=True)
+                    #dI0 = self._dI(Vz,Vzt,Vrz,temp3T)
+                    
+                    Jro = temp3T.Iro[0]
+                    Jzo = temp3T.Izo[0]
+                    Jto = temp3T.Ito[0]
+                  
+                except: 
+                    Jro = np.nan
+                    Jzo = np.nan
+                    Jto = np.nan
+                    
+            #output
+            iv3T.Iro.flat[i] = Jro * bot.area
+            iv3T.Izo.flat[i] = Jzo * self.area
+            iv3T.Ito.flat[i] = Jto * top.area
+            i += 1
+            
+        iv3T.kirchhoff(['Vzt', 'Vrz'])   # Vtr not used so make sure consistent
+        iv3T.kirchhoff(iv3T.Idevlist.copy())   # check for bad results
+        iv3T.Pcalc()    #dev2load defaults
+                   
+        return 0    
+   
+    def Voc3(self, meastype='CZ'):
+        '''
+        triple Voc of 3T tandem
+        (Vzt, Vrz, Vtr) of (Iro = 0, Izo = 0, Ito = 0)
+        '''
+        
+        temp3T = IV3T(name='Voc3', shape=1, meastype=meastype)
+        temp3T.update(Iro = 0, Izo = 0, Ito = 0)
+        self.V3T(temp3T)
+        
+        #return (temp3T.Vzt[0], temp3T.Vrz[0], temp3T.Vtr[0])
+        return temp3T
+      
+    def Isc3(self, meastype='CZ'):
+        '''
+        triple Isc of 3T tandem
+        (Iro, Izo, Ito ) of (Vzt = 0, Vrz = 0, Vtr = 0) 
+        '''
+        
+        temp3T = IV3T(name='Isc3', shape=1, meastype=meastype)
+        temp3T.update(Vzt = 0, Vrz = 0, Vtr = 0)
+        self.I3Trel(temp3T)
+        
+        #return (temp3T.Iro[0], temp3T.Izo[0], temp3T.Ito[0])
+        return temp3T
+ 
+    def MPP(self, pnts=101):
+        '''
+        iteratively find MPP from lines
+        '''
+        
+        ts = time()
+        meastype = 'CZ'
+        Voc3 = self.Voc3(meastype)
+        tol = 1e-5
+        Vmpr = 0.
+        lnt = IV3T(name = 'lnMPPt', meastype = meastype)        
+        lnr = IV3T(name = 'lnMPPr', meastype = meastype)
+       
+        Pmpo = 0.
+        for i in range(5):
+            #iterate
+            lnt.line('Vzt', 0, Voc3.Vzt[0], pnts, 'Vrz', str(Vmpr)) 
+            self.I3Trel(lnt)
+            aPt = getattr(lnt, 'Ptot')
+            aVzt = getattr(lnt, 'Vzt')
+            nt = np.argmax(aPt)
+            Vmpt = aVzt[nt]
+            Pmpt = aPt[nt]
+            #print(i, Vmpt, Vmpr, Pmpt)
+            
+            lnr.line('Vrz', 0, Voc3.Vrz[0], pnts, 'Vzt', str(Vmpt)) 
+            self.I3Trel(lnr)
+            aPr = getattr(lnr, 'Ptot')
+            aVrz = getattr(lnr, 'Vrz')
+            nr = np.argmax(aPr)
+            Vmpr = aVrz[nr]
+            Pmpr = aPr[nr]
+            #print(i, Vmpt, Vmpr, Pmpr)
+            
+            if (Pmpr - Pmpo)/Pmpr < tol : break
+            Pmpo = Pmpr
+ 
+        # create one line solution
+        pt = IV3T(name = 'MPP', meastype = meastype, shape=1)
+        pt.Vzt[0] = Vmpt
+        pt.Vrz[0] = Vmpr
+        pt.kirchhoff(['Vzt', 'Vrz'])
+        self.I3Trel(pt)
+
+        te = time()
+        ms=(te-ts)*1000.
+        print('MPP: {0:d}pnts , {1:2.4f} ms'.format(pnts,ms))
+        
+        return pt
+       
+        
+    def VIpoint(self, zerokey, varykey, crosskey, meastype='CZ', pnts=11, bplot=False):
+        '''
+        solve for mixed (V=0, I=0) zero power points
+        '''
+        if varykey[0] == 'V':
+            Voc3 = self.Voc3(meastype)
+            x0 = getattr(Voc3, varykey)[0]
+            dx = 0.2
+            abs_tol = 1e-5 #.01 mA
+        else:
+            Isc3 = self.Isc3(meastype)
+            x0 = getattr(Isc3, varykey)[0]
+            dx = abs(getattr(Isc3, 'Izo')[0])
+            abs_tol = 1e-3  #1 mV
+
+        ln = IV3T(name = 'ln'+zerokey+'_0', meastype = meastype)
+        
+        growth = (pnts - 1.)
+
+        if bplot:
+            fig, ax = plt.subplots()
+            ax.axhline(0, color='gray')
+            ax.set_title(zerokey+crosskey)
+
+        for i in range(3):
+            ln.line(varykey, x0-dx, x0+dx, pnts, zerokey, '0') 
+            if varykey[0] == 'V':
+                self.I3Trel(ln)
+            else:
+                self.V3T(ln)
+    
+            x = getattr(ln, varykey)
+            y = getattr(ln, crosskey)
+            x0 = np.interp(0, y, x) 
+            dx /= growth
+            if bplot: ax.plot(x,y,marker='.')
+
+        # create one line solution
+        pt = IV3T(name = zerokey+crosskey, meastype = meastype, shape=1)
+        xp = getattr(pt, varykey)
+        xp[0] = x0
+        zp = getattr(pt, zerokey)
+        zp[0] = 0
+        pt.kirchhoff([zerokey, varykey])
+        if varykey[0] == 'V':          
+            self.I3Trel(pt)
+        else:
+            self.V3T(pt)
+        
+        return pt
+
+    def specialpoints(self, meastype = 'CZ'):
+        '''
+        compile all the special zero power points
+        and fast MPP estimate
+        '''
+
+        sp = self.Voc3(meastype=meastype) #Voc3 = 0
+        sp.names[0] = 'Voc3'
+        sp.name = 'SpecialPoints'
+        sp.append(self.Isc3(meastype=meastype)) #Isc3 = 1
+
+        # (Izo = 0, Vtr =0)        
+        sp.append(self.VIpoint('Izo','Ito','Vtr', meastype=meastype)) # Izo = 0, x = Ito, y = Vtr      
+        #sp.append(self.VIpoint('Vtr','Vzt','Izo', meastype=meastype)) # Vtr = 0, x = Vzt, y = Izo
+       
+        # (Ito = 0, Vrz = 0)        
+        sp.append(self.VIpoint('Ito','Iro','Vrz', meastype=meastype)) # Ito = 0, x = Iro, y = Vrz
+
+        # (Iro = 0, Vzt = 0)       
+        #sp.append(self.VIpoint('Iro','Ito','Vzt', meastype=meastype)) # Iro = 0, x = Ito, y = Vzt      
+        sp.append(self.VIpoint('Vzt','Vrz','Iro', meastype=meastype)) # Vzt = 0, x = Vrz , y = Iro
+        
+        sp.append(self.MPP())
+        
+        return sp
+        
+    def plot(self, pnts=31, meastype='CZ', oper = 'load2dev', cmap='terrain'):
+        '''
+        plots characterizing the Tandem3T devices 'self'
+        '''
+        #oper = oper.lower()
+        
+        #bounding points
+        factor = 1.2
+        sp = self.specialpoints(meastype)
+        '''
+        Voc3 = self.Voc3(meastype)
+        Isc3 = self.Isc3(meastype)
+        sp = Voc3  #hopefully a copy
+        sp.names[0] = Voc3.name
+        sp.name = 'SpecialPoints'
+        sp.append(Isc3)
+        '''
+        
+        Vmax = max(abs(sp.Vzt[0]), abs(sp.Vrz[0]), abs(sp.Vtr[0])) 
+        Imax = max(abs(sp.Iro[1]), abs(sp.Izo[1]), abs(sp.Ito[1]))
+                   
+        iv = list()  #empty list to contain IV3T structures
+        fig, axs = plt.subplots(1,3,gridspec_kw={'width_ratios': [5,5,1]})
+        axs[1].set_title(meastype + '-mode ' + self.name, loc='center')               
+        plt.tight_layout()
+
+        for i, VorI in enumerate(['V','I']):
+            
+            ts = time()
+            # create box IV3T instance
+            name = VorI + 'plot'
+            common = meastype[1].lower()
+            if VorI == "V":
+                devlist = IV3T.Vdevlist.copy()   #['Vzt','Vrz','Vtr']
+                factor = 1.1
+                xmax = Vmax * factor
+                ymax = Vmax * factor           
+            elif VorI == "I":
+                devlist = IV3T.Idevlist.copy()   #['Iro','Izo','Ito'] 
+                factor = 2.0
+                xmax = Imax * factor
+                ymax = Imax * factor
+            if oper == 'load2dev':
+                xkey = VorI + 'A'
+                ykey = VorI + 'B'
+            elif oper == 'dev2load':
+                xkey = devlist[0]
+                ykey = devlist[1]
+            elif oper == 'hex2dev':
+                xkey = VorI + 'xhex'
+                ykey = VorI + 'yhex'
+            
+            #xmax = abs(getattr(limpnt, xkey)[0]) * factor
+            #ymax = abs(getattr(limpnt, ykey)[0]) * factor
+            iv.append(IV3T(name = name, meastype = meastype))  #add another IV3T class to iv list
+            iv[i].box(xkey,-xmax, xmax, pnts, ykey, -ymax, ymax, pnts)
+            if oper:
+                iv[i].convert(VorI, oper)
+             
+            #return iv3T
+        
+            if VorI == 'V':    
+                self.I3Trel(iv[i])   # calculate I(V)
+            else:
+                self.V3T(iv[i])   # calculate V(I)
+              
+            sp.append(iv[i].MPP(VorI))  #append MPP of current iv[i] to special points
+            
+            #print(iv3T)
+            #return iv3T
+            # plot 2D iv3T
+            if VorI == 'I':
+                #use mA for current
+                scale = 1000.
+                xlab = iv[i].xkey + ' (mA)'
+                ylab = iv[i].ykey + ' (mA)'
+            else:
+                scale = 1.
+                xlab = iv[i].xkey + ' (V)'
+                ylab = iv[i].ykey + ' (V)'
+                
+            x = iv[i].x * scale
+            y = iv[i].y * scale
+            z = iv[i].Ptot * 1000
+            extent = [np.min(x), np.max(x), np.min(y), np.max(y)]
+            levels = [0,5,10,15,20,25,30]
+            vmax = 25
+            #subplot
+            ax = axs[i]
+            #ax = plt.subplot(1,2,(i+1))
+            ax.set_xlabel(xlab)  # Add an x-label to the axes.
+            ax.set_ylabel(ylab)  # Add a y-label to the axes.
+            ax.set_aspect(1)
+          
+            #image
+            imag = ax.imshow(z, vmin=0, vmax=vmax, origin='lower', 
+                             extent = extent, cmap=cmap)           
+                       
+            # axis lines
+            if oper.find('hex') < 0:
+                #cartesian grids
+                ax.axhline(0, color='gray')
+                ax.axvline(0, color='gray')
+            else:
+                #add hexgrids
+                pass
+            
+            #contour            
+            cont = ax.contour(x, y, z, colors = 'black',
+                           levels = levels)
+            ax.clabel(cont, inline=True, fontsize=10)
+            
+            #add points
+            #for p3T in plist:
+            xp = getattr(sp, xkey) * scale
+            yp = getattr(sp, ykey) * scale
+            ax.plot(xp, yp, marker='o', ls='', ms=4, c='red')
+            
+            te = time()
+            ms=(te-ts)*1000.
+            print('axs[{0:g}]: {1:d}pnts , {2:2.4f} ms'.format(i,pnts,ms))
+                   
+        #colorbar as 3rd subplot
+        ax = axs[2]
+        cb = plt.colorbar(imag, cax=ax)
+        ax.set_box_aspect(5)
+        cb.set_label('Power (mW)')
+ 
+        return fig, axs, sp
+ 
