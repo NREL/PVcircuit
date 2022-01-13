@@ -290,10 +290,7 @@ class IV3T(object):
             return 1
         addmin, addmax = iv3T.sizes(self.arraykeys)
         newsize = (nmax + addmax)
-        
-        if self.meastype != iv3T.meastype:
-            print('meastypes different', self.meastype , iv3T.meastype)
-            
+                    
         self.resize(newsize, fillname = iv3T.name)  #resize and flatten
         
         for i in range(addmax):
@@ -306,6 +303,12 @@ class IV3T(object):
             
             for i in range(addmax):
                 selfarray[i+nmax] = addarray[i]  #add key values
+                
+        if self.meastype != iv3T.meastype:  # correct all load values
+            self.convert('V','dev2load')
+            self.convert('I','dev2load')
+            #print('meastypes different', self.meastype , iv3T.meastype)
+            
         return 0
         
     def init(self,inlist,outlist):

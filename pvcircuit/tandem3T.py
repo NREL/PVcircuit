@@ -352,42 +352,86 @@ class Tandem3T(object):
         #return (temp3T.Iro[0], temp3T.Izo[0], temp3T.Ito[0])
         return temp3T
  
-    def MPP(self, pnts=101):
+    def MPP(self, pnts=31, VorI= 'I', less = 2., bplot=False):
         '''
         iteratively find MPP from lines
+        as experimentally done
+        varying I is faster than varying V
+        but initial guess is not as good
+        'less' must be > 1.0
+        if FF is really bad, may need larger 'less'
+        bplot for debugging information
         '''
         
         ts = time()
         meastype = 'CZ'
         Voc3 = self.Voc3(meastype)
+        Isc3 = self.Isc3(meastype)
+        Isct = Isc3.Ito[0]
+        Iscr = Isc3.Iro[0]
+        pnt = self.top.pn
+        pnr = self.bot.pn
         tol = 1e-5
+        # initial guesses
         Vmpr = 0.
+        Impr = Iscr
+        Impt = Isct
+        # create IV3T classes for top and rear
         lnt = IV3T(name = 'lnMPPt', meastype = meastype)        
         lnr = IV3T(name = 'lnMPPr', meastype = meastype)
+
+        if bplot:
+            fig, ax = plt.subplots()
+            ax.axhline(0, color='gray')
+            ax.axvline(0, color='gray')
+            ax.set_title(self.name + ' MPP calc.')
+            ax.plot(Voc3.Vrz, 0, marker='o')
+            ax.plot(Voc3.Vzt, 0, marker='o')
+            ax.plot(0, Isc3.Iro*pnr, marker='o')
+            ax.plot(0, Isc3.Ito*pnt, marker='o')
        
         Pmpo = 0.
         for i in range(5):
             #iterate
-            lnt.line('Vzt', 0, Voc3.Vzt[0], pnts, 'Vrz', str(Vmpr)) 
-            self.I3Trel(lnt)
+            if VorI == 'V':
+                lnt.line('Vzt', 0, Voc3.Vzt[0], pnts, 'Vrz', str(Vmpr)) 
+                self.I3Trel(lnt)
+            else:
+                lnt.line('Ito', Isct, Isct/less, pnts, 'Iro', str(Impr))
+                self.V3T(lnt)
             aPt = getattr(lnt, 'Ptot')
             aVzt = getattr(lnt, 'Vzt')
+            aIto = getattr(lnt, 'Ito')
             nt = np.argmax(aPt)
             Vmpt = aVzt[nt]
+            Impt = aIto[nt]
             Pmpt = aPt[nt]
-            #print(i, Vmpt, Vmpr, Pmpt)
-            
-            lnr.line('Vrz', 0, Voc3.Vrz[0], pnts, 'Vzt', str(Vmpt)) 
-            self.I3Trel(lnr)
+            if bplot: 
+                ax.plot(aVzt, aIto*pnt, marker='.')
+                ax.plot(Vmpt, Impt*pnt,marker='o')
+                print(i, 'T', Vmpt, Impt, Pmpt)
+
+            if VorI == 'V':
+                lnr.line('Vrz', 0, Voc3.Vrz[0], pnts, 'Vzt', str(Vmpt)) 
+                self.I3Trel(lnr)
+            else:
+                lnr.line('Iro', Iscr, Iscr/less, pnts, 'Ito', str(Impt))
+                self.V3T(lnr)
             aPr = getattr(lnr, 'Ptot')
             aVrz = getattr(lnr, 'Vrz')
+            aIro = getattr(lnr, 'Iro')
             nr = np.argmax(aPr)
             Vmpr = aVrz[nr]
+            Impr = aIro[nr]
             Pmpr = aPr[nr]
-            #print(i, Vmpt, Vmpr, Pmpr)
+            if bplot: 
+                ax.plot(aVrz, aIro*pnr, marker='.')
+                ax.plot(Vmpr, Impr*pnr, marker='o')
+                print(i, 'R', Vmpr, Impr, Pmpr)
             
             if (Pmpr - Pmpo)/Pmpr < tol : break
             Pmpo = Pmpr
+            VorI = 'I'  #switch to 'I' after first iteration
  
         # create one line solution
         pt = IV3T(name = 'MPP', meastype = meastype, shape=1)
@@ -397,16 +441,17 @@ class Tandem3T(object):
         self.I3Trel(pt)
 
         te = time()
-        ms=(te-ts)*1000.
-        print('MPP: {0:d}pnts , {1:2.4f} ms'.format(pnts,ms))
+        dt=(te-ts)
+        if bplot: print('MPP: {0:d}pnts , {1:2.4f} s'.format(pnts,dt))
         
         return pt
-       
-        
+               
     def VIpoint(self, zerokey, varykey, crosskey, meastype='CZ', pnts=11, bplot=False):
         '''
         solve for mixed (V=0, I=0) zero power points
         '''
+        
+        ts = time()
         if varykey[0] == 'V':
             Voc3 = self.Voc3(meastype)
             x0 = getattr(Voc3, varykey)[0]
@@ -425,9 +470,11 @@ class Tandem3T(object):
         if bplot:
             fig, ax = plt.subplots()
             ax.axhline(0, color='gray')
-            ax.set_title(zerokey+crosskey)
+            ax.set_title('VIpoint: '+zerokey+crosskey+'  '+zerokey+'=0')
+            ax.set_xlabel(varykey)
+            ax.set_ylabel(crosskey)
 
-        for i in range(3):
+        for i in range(4):
             ln.line(varykey, x0-dx, x0+dx, pnts, zerokey, '0') 
             if varykey[0] == 'V':
                 self.I3Trel(ln)
@@ -451,10 +498,14 @@ class Tandem3T(object):
             self.I3Trel(pt)
         else:
             self.V3T(pt)
-        
+
+        te = time()
+        dt=(te-ts)
+        if bplot: print('VIpoint: ' + pt.name + ' {0:d}pnts , {1:2.4f} s'.format(pnts,dt))
+
         return pt
 
-    def specialpoints(self, meastype = 'CZ'):
+    def specialpoints(self, meastype = 'CZ', bplot=False):
         '''
         compile all the special zero power points
         and fast MPP estimate
@@ -466,17 +517,17 @@ class Tandem3T(object):
         sp.append(self.Isc3(meastype=meastype)) #Isc3 = 1
 
         # (Izo = 0, Vtr =0)        
-        sp.append(self.VIpoint('Izo','Ito','Vtr', meastype=meastype)) # Izo = 0, x = Ito, y = Vtr      
+        sp.append(self.VIpoint('Izo','Ito','Vtr', meastype=meastype, bplot=bplot)) # Izo = 0, x = Ito, y = Vtr      
         #sp.append(self.VIpoint('Vtr','Vzt','Izo', meastype=meastype)) # Vtr = 0, x = Vzt, y = Izo
        
         # (Ito = 0, Vrz = 0)        
-        sp.append(self.VIpoint('Ito','Iro','Vrz', meastype=meastype)) # Ito = 0, x = Iro, y = Vrz
+        sp.append(self.VIpoint('Ito','Iro','Vrz', meastype=meastype, bplot=bplot)) # Ito = 0, x = Iro, y = Vrz
 
         # (Iro = 0, Vzt = 0)       
         #sp.append(self.VIpoint('Iro','Ito','Vzt', meastype=meastype)) # Iro = 0, x = Ito, y = Vzt      
-        sp.append(self.VIpoint('Vzt','Vrz','Iro', meastype=meastype)) # Vzt = 0, x = Vrz , y = Iro
+        sp.append(self.VIpoint('Vzt','Vrz','Iro', meastype=meastype, bplot=bplot)) # Vzt = 0, x = Vrz , y = Iro
         
-        sp.append(self.MPP())
+        sp.append(self.MPP(bplot=bplot))
         
         return sp
         
@@ -599,8 +650,8 @@ class Tandem3T(object):
             ax.plot(xp, yp, marker='o', ls='', ms=4, c='red')
             
             te = time()
-            ms=(te-ts)*1000.
-            print('axs[{0:g}]: {1:d}pnts , {2:2.4f} ms'.format(i,pnts,ms))
+            dt=(te-ts)
+            print('axs[{0:g}]: {1:d}pnts , {2:2.4f} s'.format(i,pnts,dt))
                    
         #colorbar as 3rd subplot
         ax = axs[2]
