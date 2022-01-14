@@ -252,8 +252,8 @@ class Multi2T(object):
         ax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
         ax.set_ylabel('Current Density (A/cm2)')  # Add a y-label to the axes.
         #ax.grid()
-        ax.axhline(0, color='gray')
-        ax.axvline(0, color='gray')
+        ax.axhline(0, ls= '--', color='gray')
+        ax.axvline(0, ls= '--', color='gray')
                 
         if title.lower().find('dark') >= 0. : 
             # dark JV on logscale         

@@ -8,6 +8,7 @@ import math   #simple math
 from time import time
 import numpy as np   #arrays
 import matplotlib.pyplot as plt   #plotting
+from scipy.interpolate import interp1d
 from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
 import scipy.constants as con   #physical constants
@@ -161,24 +162,40 @@ class Tandem3T(object):
             Vt = iv3T.Vtr.flat[i]
             # top Junction
             top.JLC = 0.
-            Vtmid = top.Vmid(Vt * top.pn) * top.pn  
-            Jt = -top.Jparallel(Vtmid * top.pn,top.Jphoto) * top.pn
+            if top.notdiode():  # top resistor only
+                Vtmid = 0.
+                Jt = Vt / top.Rser
+            else: # top diode
+                Vtmid = top.Vmid(Vt * top.pn) * top.pn  
+                Jt = -top.Jparallel(Vtmid * top.pn,top.Jphoto) * top.pn
          
             # bot Junction
             bot.JLC = bot.beta * top.Jem(Vtmid)   # top to bot LC
-            Vrmid = bot.Vmid(Vr * bot.pn) * bot.pn  
-            Jr = -bot.Jparallel(Vrmid * bot.pn ,bot.Jphoto) * bot.pn
+            if bot.notdiode():  # bot resistor only
+                Vrmid = 0.
+                Jr = Vr / bot.Rser
+            else: # bot diode
+                Vrmid = bot.Vmid(Vr * bot.pn) * bot.pn  
+                Jr = -bot.Jparallel(Vrmid * bot.pn ,bot.Jphoto) * bot.pn
             
             if top.beta > 0.:   # repeat if backwards LC
                 # top Junction
                 top.JLC = top.beta * bot.Jem(Vrmid)    # bot to top LC
-                Vtmid = top.Vmid(Vt * top.pn) * top.pn  
-                Jt = -top.Jparallel(Vtmid * top.pn,top.Jphoto) * top.pn
-             
+                if top.notdiode():  # top resistor only
+                    Vtmid = 0.
+                    Jt = Vt / top.Rser
+                else: # top diode
+                    Vtmid = top.Vmid(Vt * top.pn) * top.pn  
+                    Jt = -top.Jparallel(Vtmid * top.pn,top.Jphoto) * top.pn
+         
                 # bot Junction
                 bot.JLC = bot.beta * top.Jem(Vtmid)   # top to bot LC
-                Vrmid = bot.Vmid(Vr * bot.pn) * bot.pn  
-                Jr = -bot.Jparallel(Vrmid * bot.pn ,bot.Jphoto) * bot.pn
+                if bot.notdiode():  # bot resistor only
+                    Vrmid = 0.
+                    Jr = Vr / bot.Rser
+                else: # bot diode
+                    Vrmid = bot.Vmid(Vr * bot.pn) * bot.pn  
+                    Jr = -bot.Jparallel(Vrmid * bot.pn ,bot.Jphoto) * bot.pn
  
             # extra Z contact
             if self.Rz == 0.:
@@ -455,12 +472,13 @@ class Tandem3T(object):
         if varykey[0] == 'V':
             Voc3 = self.Voc3(meastype)
             x0 = getattr(Voc3, varykey)[0]
-            dx = 0.2
+            dx = 1
             abs_tol = 1e-5 #.01 mA
         else:
             Isc3 = self.Isc3(meastype)
             x0 = getattr(Isc3, varykey)[0]
-            dx = abs(getattr(Isc3, 'Izo')[0])
+            #dx = abs(getattr(Isc3, 'Izo')[0])
+            dx = .1
             abs_tol = 1e-3  #1 mV
 
         ln = IV3T(name = 'ln'+zerokey+'_0', meastype = meastype)
@@ -473,31 +491,43 @@ class Tandem3T(object):
             ax.set_title('VIpoint: '+zerokey+crosskey+'  '+zerokey+'=0')
             ax.set_xlabel(varykey)
             ax.set_ylabel(crosskey)
+            ax.plot(x0,0,marker='o',fillstyle='none', ms=8, color='black')
 
         for i in range(4):
+            if bplot: print('x0 =',x0)
             ln.line(varykey, x0-dx, x0+dx, pnts, zerokey, '0') 
             if varykey[0] == 'V':
                 self.I3Trel(ln)
             else:
-                self.V3T(ln)
-    
-            x = getattr(ln, varykey)
-            y = getattr(ln, crosskey)
-            x0 = np.interp(0, y, x) 
+                self.V3T(ln)  
+            xx = getattr(ln, varykey)
+            yy = getattr(ln, crosskey)
+            
+            try:
+                fn_interp = interp1d(yy,xx) # scipy interpolate function
+                xguess = fn_interp(0.)
+            except:
+                xguess = np.interp(0., yy, xx)  # y=zero crossing
+            if not np.isnan(xguess):
+                x0 = xguess
             dx /= growth
-            if bplot: ax.plot(x,y,marker='.')
-
+            if bplot: ax.plot(xx,yy,marker='.')
+              
         # create one line solution
         pt = IV3T(name = zerokey+crosskey, meastype = meastype, shape=1)
         xp = getattr(pt, varykey)
         xp[0] = x0
         zp = getattr(pt, zerokey)
-        zp[0] = 0
-        pt.kirchhoff([zerokey, varykey])
+        zp[0] = 0.
+        pt.kirchhoff([zerokey, varykey])            
         if varykey[0] == 'V':          
             self.I3Trel(pt)
         else:
             self.V3T(pt)
+            
+        yp = getattr(pt, crosskey)
+        if not math.isclose(yp[0], 0., abs_tol=1e-3):  # test if it worked
+            pt.nanpnt(0)
 
         te = time()
         dt=(te-ts)
@@ -518,14 +548,18 @@ class Tandem3T(object):
 
         # (Izo = 0, Vtr =0)        
         sp.append(self.VIpoint('Izo','Ito','Vtr', meastype=meastype, bplot=bplot)) # Izo = 0, x = Ito, y = Vtr      
-        #sp.append(self.VIpoint('Vtr','Vzt','Izo', meastype=meastype)) # Vtr = 0, x = Vzt, y = Izo
+        sp.append(self.VIpoint('Vtr','Vzt','Izo', meastype=meastype, bplot=bplot)) # Vtr = 0, x = Vzt, y = Izo
+        sp.append(self.VIpoint('Vtr','Vrz','Izo', meastype=meastype, bplot=bplot)) # Vtr = 0, x = Vzt, y = Izo
        
         # (Ito = 0, Vrz = 0)        
         sp.append(self.VIpoint('Ito','Iro','Vrz', meastype=meastype, bplot=bplot)) # Ito = 0, x = Iro, y = Vrz
+        sp.append(self.VIpoint('Vrz','Vtr','Ito', meastype=meastype, bplot=bplot)) # Vrz = 0, x = Vzt, y = Ito
+        sp.append(self.VIpoint('Vrz','Vzt','Ito', meastype=meastype, bplot=bplot)) # Vrz = 0, x = Vzt, y = Ito
 
         # (Iro = 0, Vzt = 0)       
-        #sp.append(self.VIpoint('Iro','Ito','Vzt', meastype=meastype)) # Iro = 0, x = Ito, y = Vzt      
+        sp.append(self.VIpoint('Iro','Ito','Vzt', meastype=meastype)) # Iro = 0, x = Ito, y = Vzt      
         sp.append(self.VIpoint('Vzt','Vrz','Iro', meastype=meastype, bplot=bplot)) # Vzt = 0, x = Vrz , y = Iro
+        sp.append(self.VIpoint('Vzt','Vtr','Iro', meastype=meastype, bplot=bplot)) # Vzt = 0, x = Vrz , y = Iro
         
         sp.append(self.MPP(bplot=bplot))
         
@@ -570,7 +604,7 @@ class Tandem3T(object):
                 ymax = Vmax * factor           
             elif VorI == "I":
                 devlist = IV3T.Idevlist.copy()   #['Iro','Izo','Ito'] 
-                factor = 2.0
+                factor = 3.0
                 xmax = Imax * factor
                 ymax = Imax * factor
             if oper == 'load2dev':
@@ -632,8 +666,8 @@ class Tandem3T(object):
             # axis lines
             if oper.find('hex') < 0:
                 #cartesian grids
-                ax.axhline(0, color='gray')
-                ax.axvline(0, color='gray')
+                ax.axhline(0, ls= '--', color='gray')
+                ax.axvline(0, ls= '--', color='gray')
             else:
                 #add hexgrids
                 pass

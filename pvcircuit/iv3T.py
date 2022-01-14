@@ -222,7 +222,16 @@ class IV3T(object):
         self.ykey = ykey
         self.x = x
         self.y = y
-
+        
+    def nanpnt(self,index):
+        '''
+        make indexed point in each keyarray an nan
+        index tuple i = (i, ) or (i,j)
+        '''
+        for key in self.arraykeys:
+            array = getattr(self, key)
+            array[index] = np.nan        
+        
     def MPP(self,name=''):
         '''
         find max power point of existing IV3T class datapoints
@@ -437,7 +446,7 @@ class IV3T(object):
 
         if len(self.meastype) > 2:  #swap loads for alternate measurements, e.g CTo
             loadlist = loadlist[::-1]
-            print(self.meastype, '->', loadlist, ' swapped')
+            #print(self.meastype, '->', loadlist, ' swapped')
 
         if oper == 'dev2hex':
             inlist = devlist
@@ -521,8 +530,8 @@ class IV3T(object):
             ax.axis('scaled')
             ax.set_xlabel(xlab)  # Add an x-label to the axes.
             ax.set_ylabel(ylab)  # Add a y-label to the axes.
-            ax.axhline(0, color='gray')
-            ax.axvline(0, color='gray')
+            ax.axhline(0, ls= '--', color='gray')
+            ax.axvline(0, ls= '--', color='gray')
              
         else:  # line or points
             fig, ax = plt.subplots()

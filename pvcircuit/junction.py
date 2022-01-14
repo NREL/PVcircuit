@@ -193,7 +193,19 @@ class Junction(object):
             return Jem
         else:
             return 0.
- 
+
+    def notdiode(self):
+        '''
+        is this junction really a diode
+        or just a resistor
+        sum(J0) = 0 -> no diode
+        '''
+        jsum = np.float64(0.)
+        for saturation_current in self.J0:
+            jsum +=saturation_current
+            
+        return (jsum == np.float64(0.))
+        
     def Jmultidiodes(self,Vdiode):
         '''
         calculate recombination current density from 
@@ -267,6 +279,9 @@ class Junction(object):
         for voltage across parallel diodes with shunt and reverse breakdown
         '''
 
+        if self.notdiode():  # sum(J0)=0 -> no diode
+            return Jtot
+
         JLED = self.Jmultidiodes(Vdiode)
         JRBB = self.JshuntRBB(Vdiode)
         #JRBB = JshuntRBB(Vdiode, self.Vth, self.Gsh, self.RBB_dict)
@@ -279,6 +294,9 @@ class Junction(object):
         return Vdiode(Jtot)
         no Rseries here
         '''
+
+        if self.notdiode():  # sum(J0)=0 -> no diode
+            return 0.
 
         Jtot=self.Jphoto+Jdiode
         
@@ -309,6 +327,9 @@ class Junction(object):
         find intermediate voltage in a single junction diode with series resistance
         Given Vtot=Vparallel + Rser * Jparallel
         '''
+
+        if self.notdiode():  # sum(J0)=0 -> no diode
+            return 0.
  
         try:        
             Vmid = brentq(self._dV, -VLIM_REVERSE, VLIM_FORWARD, args=(Vtot),
