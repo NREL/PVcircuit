@@ -20,26 +20,24 @@ class Tandem3T(object):
     Tandem3T class for optoelectronic model
     '''
 
-    def __init__(self, name='Tandem3T', TC=TC_REF, Egtop=1.8, Egbot=1.4, Rz=1, pnt=-1, pnr=1):
+    update_now = True 
+
+    def __init__(self, name='Tandem3T', TC=TC_REF, Rz=1, Eg_list=[1.8,1.4], pn=[-1,1], Jext=0.014):
         # user inputs
         # default s-type n-on-p
+        
+        update_now = False
         
         self.name = name
         self.TC = TC
         self.Rz = Rz
-        self.top = Junction(name='top', Eg=Egtop, TC=TC, \
-                            Jext = 0.013, pn=pnt, beta=0.)
-        self.bot = Junction(name='bot', Eg=Egbot, TC=TC, \
-                            Jext = 0.01, pn=pnr, RBB='JFG') 
-            
-        #WB417
-        self.Rz = 2.3
-        self.top.update(Eg=1.87, J0ratio = [ 80., 22.], Jext = 0.0131, 
-                        Gsh=1e-8)   
-        self.bot.update(Eg=1.419, J0ratio = [10., 15.], Jext = 0.0128, area=0.9,
-                        Gsh = 5e-5, Rser =0.2, beta=5.)
-        #self.bot.RBB_dict =  {'method':'JFG', 'mrb':10., 'J0rb':0.5, 'Vrb':0.}
-       
+        self.top = Junction(name='top', Eg=Eg_list[0], TC=TC, \
+                            Jext = Jext, pn=pn[0], beta=0.)
+        self.bot = Junction(name='bot', Eg=Eg_list[1], TC=TC, \
+                            Jext = Jext, pn=pn[1])
+
+        update_now = True               
+
     def __str__(self):
         '''
         format concise description of Tandem3T object
@@ -58,6 +56,29 @@ class Tandem3T(object):
     
     def __repr__(self):
         return str(self)
+ 
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            if key == 'name':
+                self.__dict__[key] = str(value)
+            elif key == 'njunc':
+                self.__dict__[key] = int(value)
+            elif key == 'Vmid':
+                self.__dict__[key] = np.array(value)
+            elif key in ['top', 'bot', 'update_now']: 
+                self.__dict__[key] = value
+            elif key in ['Rz', 'TC']:
+                self.__dict__[key] = np.float64(value)
+
+            if self.update_now:  # put appropriate values into junction attributes
+                jlist = Junction.ATTR.copy()
+                jlist.remove('Rser')
+                if key in jlist :                    
+                    for i, junc in enumerate(self.j):
+                        if np.isscalar(value):
+                            junc.__dict__[key] = value
+                        else:
+                            junc.__dict__[key] = value[i]
     
     @property
     def area(self):
@@ -573,23 +594,19 @@ class Tandem3T(object):
         
         #bounding points
         factor = 1.2
+        cmap = plt.cm.get_cmap(cmap)  # start with existing cmap
+        cmap.set_under(color='white')  # white for Ptot < 0 and nan
         sp = self.specialpoints(meastype)
-        '''
-        Voc3 = self.Voc3(meastype)
-        Isc3 = self.Isc3(meastype)
-        sp = Voc3  #hopefully a copy
-        sp.names[0] = Voc3.name
-        sp.name = 'SpecialPoints'
-        sp.append(Isc3)
-        '''
-        
         Vmax = max(abs(sp.Vzt[0]), abs(sp.Vrz[0]), abs(sp.Vtr[0])) 
         Imax = max(abs(sp.Iro[1]), abs(sp.Izo[1]), abs(sp.Ito[1]))
+        levels = [0,5,10,15,20,25,30]
+        Pmax = 25
                    
         iv = list()  #empty list to contain IV3T structures
-        fig, axs = plt.subplots(1,3,gridspec_kw={'width_ratios': [5,5,1]})
-        axs[1].set_title(meastype + '-mode ' + self.name, loc='center')               
-        plt.tight_layout()
+        axs = list()  #empty list to contain axis of each figure
+        #fig, ax = plt.subplots(1,1)  #,gridspec_kw={'width_ratios': [5,5,1]})
+        #axs[1].set_title(meastype + '-mode ' + self.name, loc='center')               
+        #plt.tight_layout()
 
         for i, VorI in enumerate(['V','I']):
             
@@ -602,23 +619,35 @@ class Tandem3T(object):
                 factor = 1.1
                 xmax = Vmax * factor
                 ymax = Vmax * factor           
+                Vfig, ax = plt.subplots(1,1)  #,gridspec_kw={'width_ratios': [5,5,1]})
+                               
             elif VorI == "I":
                 devlist = IV3T.Idevlist.copy()   #['Iro','Izo','Ito'] 
                 factor = 3.0
                 xmax = Imax * factor
                 ymax = Imax * factor
+                Ifig, ax = plt.subplots(1,1)  #,gridspec_kw={'width_ratios': [5,5,1]})
             if oper == 'load2dev':
                 xkey = VorI + 'A'
                 ykey = VorI + 'B'
+                ax.set_title(self.name + ' P-'+VorI+'-'+VorI + ' ' + meastype + '-mode ' , loc='center')
             elif oper == 'dev2load':
                 xkey = devlist[0]
                 ykey = devlist[1]
+                ax.set_title(self.name + ' P-'+VorI+'-'+VorI , loc='center')
+            elif oper == 'dev2hex':
+                xkey = devlist[0]
+                ykey = devlist[1]
+                xscat = VorI + 'xhex'
+                yscat = VorI + 'yhex'
+                ax.set_title(self.name + ' P-'+VorI+'-'+VorI+'-'+VorI + ' Hexagonal', loc='center')
             elif oper == 'hex2dev':
                 xkey = VorI + 'xhex'
                 ykey = VorI + 'yhex'
             
             #xmax = abs(getattr(limpnt, xkey)[0]) * factor
             #ymax = abs(getattr(limpnt, ykey)[0]) * factor
+            axs.append(ax)
             iv.append(IV3T(name = name, meastype = meastype))  #add another IV3T class to iv list
             iv[i].box(xkey,-xmax, xmax, pnts, ykey, -ymax, ymax, pnts)
             if oper:
@@ -639,59 +668,68 @@ class Tandem3T(object):
             if VorI == 'I':
                 #use mA for current
                 scale = 1000.
-                xlab = iv[i].xkey + ' (mA)'
-                ylab = iv[i].ykey + ' (mA)'
+                xlab = iv[i].loadlabel(xkey, meastype=meastype) + ' (mA)'
+                ylab = iv[i].loadlabel(ykey, meastype=meastype) + ' (mA)'
+                step = 20
             else:
                 scale = 1.
-                xlab = iv[i].xkey + ' (V)'
-                ylab = iv[i].ykey + ' (V)'
+                xlab = iv[i].loadlabel(xkey, meastype=meastype) + ' (V)'
+                ylab = iv[i].loadlabel(ykey, meastype=meastype) + ' (V)'
+                if Vmax < 1.:
+                    step = 0.5
+                else:
+                    step = 1.0
                 
-            x = iv[i].x * scale
-            y = iv[i].y * scale
-            z = iv[i].Ptot * 1000
+            x = iv[i].x * scale # 1D
+            y = iv[i].y * scale # 1D
+            z = iv[i].Ptot * 1000 # 2D
             extent = [np.min(x), np.max(x), np.min(y), np.max(y)]
-            levels = [0,5,10,15,20,25,30]
-            vmax = 25
             #subplot
-            ax = axs[i]
-            #ax = plt.subplot(1,2,(i+1))
-            ax.set_xlabel(xlab)  # Add an x-label to the axes.
-            ax.set_ylabel(ylab)  # Add a y-label to the axes.
+            #ax = axs[i]
             ax.set_aspect(1)
           
-            #image
-            imag = ax.imshow(z, vmin=0, vmax=vmax, origin='lower', 
-                             extent = extent, cmap=cmap)           
-                       
-            # axis lines
             if oper.find('hex') < 0:
                 #cartesian grids
+                ax.set_xlabel(xlab)  # Add an x-label to the axes.
+                ax.set_ylabel(ylab)  # Add a y-label to the axes.
                 ax.axhline(0, ls= '--', color='gray')
                 ax.axvline(0, ls= '--', color='gray')
+                #image
+                imag = ax.imshow(z, vmin=0, vmax=Pmax, origin='lower', 
+                                 extent = extent, cmap=cmap)           
+                #contour            
+                cont = ax.contour(x, y, z, colors = 'black',
+                               levels = levels)
+                ax.clabel(cont, inline=True, fontsize=10)
             else:
-                #add hexgrids
-                pass
-            
-            #contour            
-            cont = ax.contour(x, y, z, colors = 'black',
-                           levels = levels)
-            ax.clabel(cont, inline=True, fontsize=10)
-            
-            #add points
-            #for p3T in plist:
+                ax.set_axis_off()   # turn off confusing x-axis and y-axis
+                #add hexgrids 
+                iv[i].hexgrid(ax, VorI, step)               
+                #scatter
+                xkey = VorI + 'xhex'
+                ykey = VorI + 'yhex'
+                xx = getattr(iv[i],xkey) * scale
+                yy = getattr(iv[i],ykey) * scale
+                imag = ax.scatter(xx, yy, s=100, c=z, marker='h', cmap=cmap, \
+                    vmin=0, vmax=Pmax)
+                #contour
+                cont = ax.contour(xx, yy, z, colors = 'black',
+                               levels = levels)
+                ax.clabel(cont, inline=True, fontsize=10)
+                
+                       
+            #add points           
             xp = getattr(sp, xkey) * scale
             yp = getattr(sp, ykey) * scale
-            ax.plot(xp, yp, marker='o', ls='', ms=4, c='red')
-            
+            #ax.plot(xp, yp, marker='o', fillstyle='none', mew=2, ls='', ms=6, c='red')
+            ax.scatter(xp, yp, marker='^', s=100, c='red', edgecolors='black')
+            #colorbar
+            cb = plt.colorbar(imag, ax=ax)
+            cb.set_label('Power (mW)')
+           
             te = time()
             dt=(te-ts)
             print('axs[{0:g}]: {1:d}pnts , {2:2.4f} s'.format(i,pnts,dt))
-                   
-        #colorbar as 3rd subplot
-        ax = axs[2]
-        cb = plt.colorbar(imag, cax=ax)
-        ax.set_box_aspect(5)
-        cb.set_label('Power (mW)')
  
-        return fig, axs, sp
+        return Vfig, Ifig, axs, iv, sp
  

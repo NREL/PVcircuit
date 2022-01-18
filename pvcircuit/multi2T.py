@@ -163,17 +163,14 @@ class Multi2T(object):
     def Jsc(self):
         return abs(self.J2T(0.))
        
-   
-    @property
-    def MPP(self):
+    
+    def MPP(self, pnts=11, bplot=False):
         # calculate maximum power point and associated IV, Vmp, Jmp, FF     
         #res=0.001   #voltage resolution
  
         ts = time()
-
-        pnts=11
         Jlo = -self.Jsc
-        Jhi = 0.001    #1mA forward
+        Jhi = 0.    #1mA forward
         #ndarray functions
         V2Tvect = np.vectorize(self.V2T)
       
@@ -184,16 +181,30 @@ class Multi2T(object):
              self.Jmp = np.nan
              self.FF = np.nan
 
-        else:        
+        else:
+            if bplot: # debug plot
+                fig, ax = plt.subplots()
+                ax.axhline(0, color='gray')
+                ax.axvline(0, color='gray')
+                ax.set_title(self.name + ' MPP')
+                ax.set_xlabel('Voltage (V)')
+                ax.set_ylabel('Current Density (A/cm2)')
+                axr = ax.twinx()
+                axr.set_ylabel('Power (W)',c='cyan')
+        
             for i in range(5):
                 Jtemp = np.linspace(Jlo, Jhi, pnts)
                 Vtemp = np.array([self.V2T(J) for J in Jtemp])
                 Vtemp = V2Tvect(Jtemp)
                 Ptemp = np.array([(-v*j) for v, j in zip(Vtemp, Jtemp)])
                 nmax = np.argmax(Ptemp)
-                #print(Jlo,Jhi,nmax)
+                if bplot:
+                    ax.plot(Vtemp, Jtemp, marker='.', ls='')
+                    axr.plot(Vtemp, Ptemp, marker='.', ls='', c='cyan')              
+                    print(nmax, Jlo, Jhi, Ptemp[nmax])
                 Jlo = Jtemp[max(0,(nmax-1))]
                 Jhi = Jtemp[min((nmax+1),(pnts-1))]
+ 
                 
             self.Pmp = Ptemp[nmax]
             self.Vmp = Vtemp[nmax]
@@ -202,17 +213,22 @@ class Multi2T(object):
             
             self.Vpoints = [0., self.Vmp, self.Voc]
             self.Jpoints = [-self.Jsc, -self.Jmp, 0.]
+            if bplot: 
+                ax.plot(self.Vpoints,self.Jpoints,\
+                marker='x',ls='', ms=12, c='black')  #special points
+                axr.plot(self.Vmp, self.Pmp, marker='o', fillstyle='none', ms=12, c='black')
         
         mpp_dict = {"Voc":self.Voc, "Jsc":self.Jsc, "Vmp":self.Vmp, \
                     "Jmp":self.Jmp, "Pmp":self.Pmp,  "FF":self.FF}
 
         te = time()
-        ms=(te-ts)*1000.
+        ds=(te-ts)
+        print(f' {ds:2.4f} s')
         
-        return mpp_dict, f' {ms:2.4f} ms'
+        return mpp_dict
                
                                             
-    def plot(self,title=None, Vmin= -0.5, pnts=21):
+    def plot(self,title='', Vmin= -0.5, pnts=21, pplot=False):
         #plot a light IV of Multi2T
         
         ts = time()
@@ -225,43 +241,13 @@ class Multi2T(object):
         V2Tvect = np.vectorize(self.V2T)
         J2Tvect = np.vectorize(self.J2T)
         
-        if title == None:
-            if math.isclose(Jmax, 0., abs_tol=1e-6) :
-                title = 'Dark'
-            else:
-                title = 'Light'
-
         if self.name :
-            title = self.name + ' ' + title
+            title += self.name 
             
-        # calc dark JV
-        self.update(Jext = 0., JLC = 0.)
-        lolog = -13
-        hilog = 7
-        pdec = 3
-        dpnts=((hilog-lolog)*pdec+1)
-        self.Jdark = np.logspace(lolog, hilog, num=dpnts)
-        #self.Vdark = np.array([self.V2T(J) for J in self.Jdark])
-        self.Vdark = V2Tvect(self.Jdark)
-        self.update(Jext = Jext_list, JLC = 0.)
-                
-        #common plotting
-        fig, ax = plt.subplots()
-        ax.plot(self.Vdark,self.Jdark,marker='.',c='green')  #JV curve
-        ax.set_title(title)  # Add a title to the axes.
-        ax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
-        ax.set_ylabel('Current Density (A/cm2)')  # Add a y-label to the axes.
-        #ax.grid()
-        ax.axhline(0, ls= '--', color='gray')
-        ax.axvline(0, ls= '--', color='gray')
-                
-        if title.lower().find('dark') >= 0. : 
-            # dark JV on logscale         
-            ax.set_yscale("log")
-            ax.set_xlim(Vmin, Egmax*1.1)
-
-        else:    #light JV          
-            self.MPP   #determine max power point
+        # calc light JV
+        if not math.isclose(Jmax, 0., abs_tol=1e-6) :
+           
+            self.MPP()   #determine max power point
             #horizonal portion
             VxV = np.linspace(Vmin, self.Voc, pnts)
             #JxV = np.array([self.J2T(V) for V in VxV])
@@ -275,33 +261,71 @@ class Multi2T(object):
             Jboth = np.concatenate((JxV,JxJ),axis=None)
             #sort
             p = np.argsort(Vboth)
-            self.Vlight = Vboth[p]
-            self.Jlight = Jboth[p]
-            self.Plight = np.array([(-v*j) for v, j in zip(self.Vlight,self.Jlight)])
+            Vlight = Vboth[p]
+            Jlight = Jboth[p]
+            Plight = np.array([(-v*j) for v, j in zip(Vlight,Jlight)])
             
-            ax.plot(self.Vlight,self.Jlight,marker='.',c='red')  #JV curve         
-            ax.plot(self.Vpoints,self.Jpoints,\
-                    marker='o',ls='',ms=12,c='#000000')  #special points
-            ax.set_xlim( (Vmin-0.1), min(Egmax,self.Voc*1.1))
-            ax.set_ylim(-Jmax*2,Jmax*2)
-            
-            #power
-            axr = ax.twinx()
-            axr.plot(self.Vlight, self.Plight,ls='--',c='cyan')
-            axr.set_ylabel('Power (W)',c='cyan')
-            
-            # annotate
-            snote = 'T = {0:.1f} C, Rser = {1:g} Ω'.format(self.TC, self.Rser) 
-            snote += '\nEg = '+str(Eg_list) + ' eV'
-            snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
-            snote += '\nVoc = {0:.2f} V, Jsc = {1:.1f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
-                .format(self.Voc, self.Jsc*1000, self.FF*100, self.Pmp*1000)
+        # calc dark JV
+        self.update(Jext = 0., JLC = 0.)   # turn lights off
+        lolog = -8
+        hilog = 2
+        pdec = 3
+        dpnts=((hilog-lolog)*pdec+1)
+        Jdark = np.logspace(lolog, hilog, num=dpnts)
+        Vdark = np.full(dpnts, np.nan, dtype=np.float64) # Vtotal
+        Vdarkmid = np.full((dpnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
+        for i, J in enumerate(Jdark):
+            Vdark[i] = self.V2T(J)  # also sets self.Vmid[i]
+            for junc in range(self.njunc):
+                Vdarkmid[i,junc] = self.Vmid[junc]       
+        #self.Vdark = np.array([self.V2T(J) for J in self.Jdark])
+        #self.Vdark = V2Tvect(self.Jdark)
+        self.update(Jext = Jext_list, JLC = 0.)  # turn lights back on
                 
-            ax.text(Vmin,Jmax/2,snote,bbox=dict(facecolor='white'))
+        #dark plot
+        dfig, dax = plt.subplots()
+        dax.plot(Vdark, Jdark, lw=2, c='black')  #JV curve
+        for junc in range(Vdarkmid.shape[1]):  #plot Vdiode of each junction
+            dax.plot(Vdarkmid[:, junc], Jdark, lw=2)
+                 
+        dax.set_yscale("log") #logscale   
+        dax.set_xlim(0, 4.3) #Egmax*1.1)
+        dax.grid(color='gray')
+        dax.set_title(title + ' Dark')  # Add a title to the axes.
+        dax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
+        dax.set_ylabel('Current Density (A/cm2)')  # Add a y-label to the axes.
+     
+        # light plot        
+        lfig, lax = plt.subplots()
+        lax.plot(Vdark, Jdark, lw=2, c='green')  # dark JV curve
+        lax.plot(Vlight, Jlight, lw=2, c='red')  #JV curve         
+        lax.plot(self.Vpoints,self.Jpoints,\
+                marker='x',ls='', ms=12, c='black')  #special points
+        if pplot:  # power curve
+            laxr = lax.twinx()
+            laxr.plot(Vlight, Plight,ls='--',c='cyan')
+            laxr.set_ylabel('Power (W)',c='cyan')
+        lax.set_xlim( (Vmin-0.1), min(Egmax,self.Voc*1.1))
+        lax.set_ylim(-Jmax*1.5,Jmax*1.5)
+        lax.set_title(title + ' Dark')  # Add a title to the axes.
+        lax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
+        lax.set_ylabel('Current Density (A/cm2)')  # Add a y-label to the axes.
+        lax.axvline(0, ls='--', c='gray')
+        lax.axhline(0, ls='--', c='gray')
+        
+        # annotate
+        snote = 'T = {0:.1f} C, Rser = {1:g} Ω'.format(self.TC, self.Rser) 
+        snote += '\nEg = '+str(Eg_list) + ' eV'
+        snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
+        snote += '\nVoc = {0:.2f} V, Jsc = {1:.1f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
+            .format(self.Voc, self.Jsc*1000, self.FF*100, self.Pmp*1000)
+            
+        lax.text(Vmin+0.1,Jmax/2,snote,bbox=dict(facecolor='white'))
             
         te = time()
-        ms=(te-ts)*1000.
+        ds=(te-ts)
+        print(f' {ds:2.4f} s')
 
-        return fig, ax, f' {ms:2.4f} ms'
+        return dfig, lfig, dax, lax
         
  

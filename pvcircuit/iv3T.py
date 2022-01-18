@@ -36,6 +36,10 @@ CZ_Vload2dev = np.transpose(np.array([[0,1,-1],[-1,0,1],[0,0,0]]))
 CZ_Iload2dev = np.transpose(np.array([[1,-1,0],[0,-1,1],[0,0,0]]))
 CZ_Vdev2load = np.transpose(np.array([[0,-1,0],[1,0,0],[0,0,0]]))
 CZ_Idev2load = np.transpose(np.array([[1,0,0],[0,0,0],[0,1,0]]))
+meas_dict = {'CZ':{'VA':'Vrz', 'VB':'-Vzt', 'IA':'Izo', 'IB':'Ito'}, \
+    'CR':{'VA':'-Vrz', 'VB':'Vtr', 'IA':'Iro', 'IB':'Ito'}, \
+    'CT':{'VA':'-Vtr', 'VB':'Vzt', 'IA':'Iro', 'IB':'Izo'}, \
+    'CF':{'VA':'-Vfr', 'VB':'Vzf', 'IA':'Iro', 'IB':'Izo'}}
 
 '''
 CR:A = ZR,B = TR
@@ -222,7 +226,67 @@ class IV3T(object):
         self.ykey = ykey
         self.x = x
         self.y = y
-        
+
+    def hexgrid(self, ax, VorI, step, xn=2, maxlines=10):
+        '''
+        add hexagonal grid lines to axis
+        range determined from self box IV3T object
+        '''
+        xhex = VorI + 'xhex'
+        yhex = VorI + 'yhex'
+        if VorI == "V":
+            devlist = IV3T.Vdevlist.copy()   #['Vzt','Vrz','Vtr']
+            scale = 1.
+        else:
+            devlist = IV3T.Idevlist.copy()   #['Iro','Izo','Ito'] 
+            scale = 1000.
+
+        hex3T = IV3T(name='hexgrid')  # create IV3T object
+
+        for ykey in devlist:
+            others = devlist.copy()
+            others.remove(ykey)
+            xkey = others[0]
+            zkey = others[1]
+            xd=getattr(self,xkey)
+            x0 = np.nanmin(xd) * scale
+            x1 = np.nanmax(xd) * scale
+            yd=getattr(self,ykey)
+            y0 = np.nanmin(yd) * scale
+            y1 = np.nanmax(yd) * scale
+            zd=getattr(self,zkey)
+            z0 = np.nanmin(zd) * scale
+            z1 = np.nanmax(zd) * scale
+            
+            numlines = 0
+            for ycon in [step*i for i in range(-maxlines,maxlines) if y0 <= step*i <= y1]:
+            
+                xalt0 = -ycon-z1
+                xalt1 = -ycon-z0
+                hex3T.line(xkey, max(x0,xalt0), min(x1,xalt1), xn, ykey, str(ycon))  # define a line
+                hex3T.convert(VorI=VorI, oper='dev2hex')
+                xx=getattr(hex3T,xhex)
+                yy=getattr(hex3T,yhex)
+                if ycon == 0:  #origin
+                    ax.plot(xx,yy, c='gray')
+                else:
+                    ax.plot(xx,yy, ls=(0,(1,3)), c='gray')
+                #label
+                ylab = ykey + ' = ' + str(ycon)
+                yindex = devlist.index(ykey)
+                if yindex == 0:
+                    rot = 60
+                    nn = 2.25
+                elif yindex == 2:
+                    rot = -60
+                    nn=1.75
+                else:
+                    rot = 0
+                    nn = 2.25
+                xt = (np.nanmin(xx) + np.nanmax(xx) * (nn-1.))/nn
+                yt = (np.nanmin(yy) + np.nanmax(yy) * (nn-1.))/nn
+                ax.text(xt, yt, ylab, rotation=rot, rotation_mode='anchor', clip_on=True)  #,bbox=dict(facecolor='white'))         
+          
     def nanpnt(self,index):
         '''
         make indexed point in each keyarray an nan
@@ -413,11 +477,32 @@ class IV3T(object):
                              
         return 0
 
+    def loadlabel(self, load, meastype=None):
+        '''
+        return descriptive axis label for load variables
+        add an extra character to swap the loads: 'CRo','CTo','CZo', 'CFo' 
+        '''
+        
+        if meastype == None:  #change the attribute here
+            meastype = self.meastype
+
+        if 'A' not in load.upper() and 'B' not in load.upper():
+            return load  # not load variable -> don't change
+
+        load = load.upper()  # fix lower case
+        if len(meastype) > 2:  #swap loads for alternate measurements, e.g CTo
+            if 'A' in load: swload=load.replace('A','B')
+            if 'B' in load: swload=load.replace('B','A')
+        else:
+            swload = load
+            
+        return load + ' = ' + meas_dict[meastype[0:2]][swload]  
+             
     def convert(self, VorI, oper, meastype=None):
         '''
         calculate hexagonal coordinates
         VorI: 'V' or 'I'
-        oper: 'hex', 'load2dev', 'dev2load'
+        oper: 'load2dev', 'dev2load', 'dev2hex', 'hex2dev' (not developed yet)
         can optionally set the meastype here
         meastype: 'CR','CT','CZ','CF' 
         add an extra character to swap the loads: 'CRo','CTo','CZo', 'CFo' 

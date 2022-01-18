@@ -69,12 +69,7 @@ class Junction(object):
         else:
             self._J0init(J0ref)  # calculate self.J0ratio from J0ref at current self.TC
          
-        if RBB == 'JFG':
-            self.RBB_dict =  {'method':'JFG', 'mrb':10., 'J0rb':0.5, 'Vrb':0.}
-        elif RBB == 'bishop':
-            self.RBB_dict = {'method':'bishop','mrb':3.28, 'avalanche':1., 'Vrb':-5.5}
-        else:
-            self.RBB_dict =  {'method': None}  #no RBB
+        self.update(RBB=RBB) 
 
     def __str__(self):
         #attr_list = self.__dict__.keys()
@@ -117,18 +112,23 @@ class Junction(object):
     
     def update(self, **kwargs):
         for key, value in kwargs.items():
-            if key == 'name':
-                value = str(value)
+            if key == 'RBB':
+                if value == 'JFG':
+                    self.__dict__['RBB_dict'] =  {'method':'JFG', 'mrb':10., 'J0rb':0.5, 'Vrb':0.}
+                elif value == 'bishop':
+                    self.__dict__['RBB_dict'] = {'method':'bishop','mrb':3.28, 'avalanche':1., 'Vrb':-5.5}
+                else:
+                    self.__dict__['RBB_dict'] =  {'method': None}  #no RBB
+            elif key == 'name':
+                self.__dict__[key] = str(value)
             elif key == 'pn':
-                value = int(value)
+                self.__dict__[key] = int(value)
             elif key == 'RBB_dict':
-                value = value
+                self.__dict__[key] = value
             elif key in ['n','J0ratio']:
-                value = np.array(value)
+                self.__dict__[key] = np.array(value)
             else:
-                value = np.float64(value)
-            
-            self.__dict__[key] = value
+                self.__dict__[key] = np.float64(value)
                                 
     @property
     def Jphoto(self): return self.Jext + self.JLC 
@@ -427,8 +427,8 @@ class Junction(object):
     def plot(self,title=None):
         #plot a single junction
         
-        if title == None:
-            title = self.name
+        if self.name:
+            title = self.name + title
                        
         self.MPP   #generate IV curve and analysis
         
