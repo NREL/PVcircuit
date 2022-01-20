@@ -95,6 +95,12 @@ class IV3T(object):
  
         size = getattr(self, key).size  #size of the last arraykey
         self.names = [fillname for i in range(size)]  # list of names of point in flat arrays
+
+    def copy(self):
+        '''
+        create a separate complete copy of a junction
+        '''
+        return copy.copy(self)
         
     def __str__(self):
         #   string description of IV3T object

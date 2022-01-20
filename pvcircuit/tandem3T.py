@@ -14,6 +14,7 @@ from scipy.optimize import brentq    #root finder
 import scipy.constants as con   #physical constants
 from pvcircuit.junction import *
 from pvcircuit.iv3T import *
+from pvcircuit.multi2T import *
                 
 class Tandem3T(object): 
     '''
@@ -38,6 +39,14 @@ class Tandem3T(object):
 
         update_now = True               
 
+
+    def copy(self):
+        '''
+        create a separate complete copy of a junction
+        '''
+        return copy.deepcopy(self)
+
+
     def __str__(self):
         '''
         format concise description of Tandem3T object
@@ -48,7 +57,7 @@ class Tandem3T(object):
         #print(attr_list)
         
         strout=self.name + ": <tandem.Tandem3T class>"
-        strout += '\nT = {0:.1f} C, Rz= {1:g} Ω, Rt= {2:g} Ω, Rr = {3:g} Ω'\
+        strout += '\nT = {0:.1f} C, Rz= {1:g} Ω cm2, Rt= {2:g} Ω cm2, Rr = {3:g} Ω cm2'\
             .format(self.TC,self.Rz,self.top.Rser,self.bot.Rser)
         strout += '\n\n'+str(self.top)
         strout += '\n\n'+str(self.bot)
@@ -371,7 +380,7 @@ class Tandem3T(object):
         '''
         
         temp3T = IV3T(name='Voc3', shape=1, meastype=meastype)
-        temp3T.update(Iro = 0, Izo = 0, Ito = 0)
+        temp3T.update(Iro = 0., Izo = 0., Ito = 0.)
         self.V3T(temp3T)
         
         #return (temp3T.Vzt[0], temp3T.Vrz[0], temp3T.Vtr[0])
@@ -384,7 +393,7 @@ class Tandem3T(object):
         '''
         
         temp3T = IV3T(name='Isc3', shape=1, meastype=meastype)
-        temp3T.update(Vzt = 0, Vrz = 0, Vtr = 0)
+        temp3T.update(Vzt = 0., Vrz = 0., Vtr = 0.)
         self.I3Trel(temp3T)
         
         #return (temp3T.Iro[0], temp3T.Izo[0], temp3T.Ito[0])
@@ -483,6 +492,64 @@ class Tandem3T(object):
         if bplot: print('MPP: {0:d}pnts , {1:2.4f} s'.format(pnts,dt))
         
         return pt
+
+               
+    def VI0(self, VIname, meastype='CZ'):
+        '''
+        solve for mixed (V=0, I=0) zero power points
+        separate diodes for quick solutions
+        '''
+        ts = time()
+        pt = IV3T(name = VIname, meastype = meastype, shape=1)
+        top = self.top  # pointer
+        bot = self.bot  # pointer
+        
+
+        if VIname == 'VztIro':
+            pt.Iro[0] = 0.
+            pt.Vzt[0] = 0.
+            #top
+            tmptop = self.top.copy()  # copy for temporary calculations
+            tmptop.update(Rser = top.Rser + self.Rz / self.area * top.area , JLC=0.) # correct Rz by area ratio
+            Vtmid = tmptop.Vmid(pt.Vzt[0] * top.pn) * top.pn
+            pt.Ito[0] = -tmptop.Jparallel(Vtmid * top.pn, tmptop.Jphoto) * top.pn * top.area 
+            pt.Izo[0] = - pt.Ito[0]  # from Kirchhoff
+            self.V3T(pt)   # calc Vs from Is
+            # bot to top LC?
+            
+        elif VIname == 'VrzIto':
+            pt.Ito[0] = 0.
+            pt.Vrz[0] = 0.
+            #top
+            tmptop = self.top.copy()  # copy for temporary calculations
+            tmptop.JLC=0.
+            Vtmid = tmptop.Vdiode(pt.Ito[0] / top.area * top.pn) * top.pn
+            #bot
+            tmpbot = self.bot.copy()
+            tmpbot.update(Rser = bot.Rser + self.Rz / self.area * bot.area) # correct Rz by area ratio
+            tmpbot.JLC = bot.beta * tmptop.Jem(Vtmid * top.pn)   # top to bot LC
+            Vrmid = tmpbot.Vmid(pt.Vrz[0] * bot.pn) * bot.pn
+            pt.Iro[0] = -tmpbot.Jparallel(Vrmid * bot.pn, tmpbot.Jphoto) * bot.pn * bot.area 
+            pt.Izo[0] = -pt.Iro[0] # Kirchhoff
+            self.V3T(pt)   # calc Vs from Is
+            # bot to top LC?
+ 
+        elif VIname == 'VtrIzo':
+            pt.Izo[0] = 0.  # series-connected 2T
+            pt.Vtr[0] = 0.
+            dev2T = Multi2T.copy3T(self)
+            pt.Iro[0] = dev2T.I2T(pt.Vtr[0])
+            pt.Ito[0] = -pt.Iro[0]
+            self.V3T(pt)   # calc Vs from Is
+            
+        else:
+            pt.nanpnt(0)
+
+        te = time()
+        dt=(te-ts)
+        #print('VI0: ' + pt.name + ' {0:2.4f} s'.format(dt))
+  
+        return pt
                
     def VIpoint(self, zerokey, varykey, crosskey, meastype='CZ', pnts=11, bplot=False):
         '''
@@ -552,7 +619,7 @@ class Tandem3T(object):
 
         te = time()
         dt=(te-ts)
-        if bplot: print('VIpoint: ' + pt.name + ' {0:d}pnts , {1:2.4f} s'.format(pnts,dt))
+        print('VIpoint: ' + pt.name + ' {0:d}pnts , {1:2.4f} s'.format(pnts,dt))
 
         return pt
 
@@ -564,24 +631,28 @@ class Tandem3T(object):
 
         sp = self.Voc3(meastype=meastype) #Voc3 = 0
         sp.names[0] = 'Voc3'
-        sp.name = 'SpecialPoints'
+        sp.name = self.name + ' SpecialPoints'
         sp.append(self.Isc3(meastype=meastype)) #Isc3 = 1
 
-        # (Izo = 0, Vtr =0)        
-        sp.append(self.VIpoint('Izo','Ito','Vtr', meastype=meastype, bplot=bplot)) # Izo = 0, x = Ito, y = Vtr      
-        sp.append(self.VIpoint('Vtr','Vzt','Izo', meastype=meastype, bplot=bplot)) # Vtr = 0, x = Vzt, y = Izo
-        sp.append(self.VIpoint('Vtr','Vrz','Izo', meastype=meastype, bplot=bplot)) # Vtr = 0, x = Vzt, y = Izo
-       
         # (Ito = 0, Vrz = 0)        
-        sp.append(self.VIpoint('Ito','Iro','Vrz', meastype=meastype, bplot=bplot)) # Ito = 0, x = Iro, y = Vrz
-        sp.append(self.VIpoint('Vrz','Vtr','Ito', meastype=meastype, bplot=bplot)) # Vrz = 0, x = Vzt, y = Ito
-        sp.append(self.VIpoint('Vrz','Vzt','Ito', meastype=meastype, bplot=bplot)) # Vrz = 0, x = Vzt, y = Ito
+        #sp.append(self.VIpoint('Ito','Iro','Vrz', meastype=meastype, bplot=bplot)) # Ito = 0, x = Iro, y = Vrz
+        #sp.append(self.VIpoint('Vrz','Vtr','Ito', meastype=meastype, bplot=bplot)) # Vrz = 0, x = Vzt, y = Ito
+        #sp.append(self.VIpoint('Vrz','Vzt','Ito', meastype=meastype, bplot=bplot)) # Vrz = 0, x = Vzt, y = Ito
+        sp.append(self.VI0('VrzIto', meastype=meastype))
 
         # (Iro = 0, Vzt = 0)       
-        sp.append(self.VIpoint('Iro','Ito','Vzt', meastype=meastype)) # Iro = 0, x = Ito, y = Vzt      
-        sp.append(self.VIpoint('Vzt','Vrz','Iro', meastype=meastype, bplot=bplot)) # Vzt = 0, x = Vrz , y = Iro
-        sp.append(self.VIpoint('Vzt','Vtr','Iro', meastype=meastype, bplot=bplot)) # Vzt = 0, x = Vrz , y = Iro
+        #sp.append(self.VIpoint('Iro','Ito','Vzt', meastype=meastype)) # Iro = 0, x = Ito, y = Vzt      
+        #sp.append(self.VIpoint('Vzt','Vrz','Iro', meastype=meastype, bplot=bplot)) # Vzt = 0, x = Vrz , y = Iro
+        #sp.append(self.VIpoint('Vzt','Vtr','Iro', meastype=meastype, bplot=bplot)) # Vzt = 0, x = Vrz , y = Iro
+        sp.append(self.VI0('VztIro', meastype=meastype))
         
+        # (Izo = 0, Vtr =0)        
+        #sp.append(self.VIpoint('Izo','Ito','Vtr', meastype=meastype, bplot=bplot)) # Izo = 0, x = Ito, y = Vtr      
+        #sp.append(self.VIpoint('Vtr','Vzt','Izo', meastype=meastype, bplot=bplot)) # Vtr = 0, x = Vzt, y = Izo
+        #sp.append(self.VIpoint('Vtr','Vrz','Izo', meastype=meastype, bplot=bplot)) # Vtr = 0, x = Vzt, y = Izo
+        sp.append(self.VI0('VtrIzo', meastype=meastype))
+      
+        # MPP
         sp.append(self.MPP(bplot=bplot))
         
         return sp
@@ -599,8 +670,10 @@ class Tandem3T(object):
         sp = self.specialpoints(meastype)
         Vmax = max(abs(sp.Vzt[0]), abs(sp.Vrz[0]), abs(sp.Vtr[0])) 
         Imax = max(abs(sp.Iro[1]), abs(sp.Izo[1]), abs(sp.Ito[1]))
-        levels = [0,5,10,15,20,25,30]
-        Pmax = 25
+        ii = sp.names.index('MPP')  # index of MPP from sp
+        Pmax = np.ceil(1000. * sp.Ptot[ii] / 5.) * 5.
+        levels = [ll for ll in range(0,45,5) if ll <= Pmax]  # for contours
+        
                    
         iv = list()  #empty list to contain IV3T structures
         axs = list()  #empty list to contain axis of each figure
@@ -724,7 +797,7 @@ class Tandem3T(object):
             #ax.plot(xp, yp, marker='o', fillstyle='none', mew=2, ls='', ms=6, c='red')
             ax.scatter(xp, yp, marker='^', s=100, c='red', edgecolors='black')
             #colorbar
-            cb = plt.colorbar(imag, ax=ax)
+            cb = plt.colorbar(imag, ax=ax, shrink=0.8, ticks=levels)
             cb.set_label('Power (mW)')
            
             te = time()

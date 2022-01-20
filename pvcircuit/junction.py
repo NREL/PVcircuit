@@ -5,6 +5,7 @@ This is the PVcircuit Package.
 """
 
 import math   #simple math
+import copy
 from time import time
 import numpy as np   #arrays
 import matplotlib.pyplot as plt   #plotting
@@ -71,6 +72,12 @@ class Junction(object):
          
         self.update(RBB=RBB) 
 
+    def copy(self):
+        '''
+        create a separate complete copy of a junction
+        '''
+        return copy.deepcopy(self)
+        
     def __str__(self):
         #attr_list = self.__dict__.keys()
         #attr_dict = self.__dict__.items()
@@ -81,7 +88,7 @@ class Junction(object):
         strout += '\n Eg = {0:.2f} eV, TC = {1:.1f} C, Jext = {2:.1f} mA/cm2' \
             .format(self.Eg, self.TC, self.Jext*1000.)
 
-        strout += '\n Gsh = {0:g} S, Rser = {1:g} Ω, area = {2:g} cm2' \
+        strout += '\n Gsh = {0:g} S, Rser = {1:g} Ω cm2, area = {2:g} cm2' \
             .format(self.Gsh, self.Rser, self.area)
             
         strout += '\n pn = {0:d}, beta = {1:g}, gamma = {2:g}, JLC = {3:.1f}' \

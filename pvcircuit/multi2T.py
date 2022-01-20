@@ -19,15 +19,15 @@ class Multi2T(object):
     '''
     update_now = True 
     
-    def __init__(self, name='Multi2T', TC=TC_REF, Rser=0., Eg_list=[1.8,1.4], Jext=0.014, \
-                 n=[1,2], J0ratio = [10., 10.]):
+    def __init__(self, name='Multi2T', TC=TC_REF, Rser=0., area=1., Jext=0.014, \
+                  Eg_list=[1.8,1.4], n=[1,2], J0ratio = [10., 10.]):
         # user inputs
           
         self.update_now = False
         
         self.name = name
         self.TC = TC
-        self.Rser = Rser        
+        self.Rser = Rser 
         self.njunc = len(Eg_list)
         CM = .03 / self.njunc
         self.Vmid = np.full(self.njunc, np.nan, dtype=np.float64)   #subcell voltages
@@ -35,10 +35,35 @@ class Multi2T(object):
         for i, Eg in enumerate(Eg_list):
             jname='j['+str(i)+']'
             self.j.append(Junction(name=jname, Eg=Eg, TC=TC, \
-                n=n, J0ratio = J0ratio, Jext=Jext))
+                n=n, J0ratio = J0ratio, Jext=Jext, area=area))
                        
         self.update_now = True
+
+
+    def copy(self):
+        '''
+        create a separate complete copy of a junction
+        '''
+        return copy.deepcopy(self)
+
+    def copy3T(dev3T):
+        '''
+        create a Multi2T object that contains the values from a Tandem3T object
+        input dev3T is Tandem3T object
+        output is a Multi2T object
+        '''
+        top = dev3T.top
+        bot = dev3T.bot
         
+        dev2T = Multi2T(name=dev3T.name, TC=dev3T.TC, Eg_list=[top.Eg, bot.Eg])
+        dev2T.j[0] = dev3T.top.copy()
+        dev2T.j[1] = dev3T.bot.copy()
+        dev2T.update(Rser = (top.Rser * top.area + bot.Rser * bot.area) / dev3T.area)
+        dev2T.j[0].Rser = 0.
+        dev2T.j[1].Rser = 0.
+        
+        return dev2T  
+            
     def __str__(self):
         '''
         format concise description of Multi2T object
@@ -46,7 +71,7 @@ class Multi2T(object):
          
         strout=self.name + ": <tandem.Multi2T class>"
     
-        strout += '\nT = {0:.1f} C, Rser= {1:g} Ω'\
+        strout += '\nT = {0:.1f} C, Rser= {1:g} Ω cm2'\
             .format(self.TC,self.Rser)
             
         for i in range(self.njunc):
@@ -59,6 +84,12 @@ class Multi2T(object):
     
     #def __setattr__(self, key, value):
         #super(Multi2T, self).__setattr__(key, value)
+
+    @property
+    def area(self):
+        # largest junction area
+        areas = self.proplist('area')
+        return max(areas)
 
     def update(self, **kwargs):
          for key, value in kwargs.items():
@@ -83,23 +114,23 @@ class Multi2T(object):
                         else:
                             junc.__dict__[key] = value[i]
  
-    def V2T(self,J):
+    def V2T(self,I):
         '''
         calcuate V(J) of 2T multijunction
         '''   
         
-        J=np.float64(J)
+        I=np.float64(I)
         for i in range(self.njunc):
             if i > 0:
                 self.j[i].JLC = self.j[i].beta * self.j[i-1].Jem(self.Vmid[i-1])    # previous LC
             else:
                 self.j[i].JLC = 0.    # no LC in top junction
                 
-            self.Vmid[i]  = self.j[i].Vdiode(J) 
+            self.Vmid[i]  = self.j[i].Vdiode(I/self.j[i].area) 
             
-        return np.sum(self.Vmid) + J * self.Rser
+        return np.sum(self.Vmid) + self.Rser * I / self.area
     
-    def J2T(self, V):
+    def I2T(self, V):
         '''
         calculate J(V) of 2T multijunction
         using Dan's algorithm
@@ -109,38 +140,39 @@ class Multi2T(object):
 
         #find max photocurrent at Voc
         Voc = self.Voc
-        Jphoto_list = self.proplist('Jphoto')
-        Jmax = max(Jphoto_list)            
+        Jphotos = self.proplist('Jphoto')
+        areas = self.proplist('area')
+        Imax = max([j*a for j,a in zip(Jphotos,areas)])            
         
         stepratio = 10
         count = 0
         if V <= Voc:   #Voc toward Jsc
-            Jdelta = - Jmax/stepratio
+            Idelta = - Imax/stepratio
         else:   #Voc toward forward
-            Jdelta = Jmax
+            Idelta = Imax
             
-        Jdelta_start = Jdelta
-        Jold = 0.   #start from Voc
-        Jtrace=[Jold]
-        while abs(Jdelta/Jdelta_start) > 1e-6 :
-            Jnew = Jold + Jdelta
-            Vnew = self.V2T(Jnew)
+        Idelta_start = Idelta
+        Iold = 0.   #start from Voc
+        Itrace=[Iold]
+        while abs(Idelta/Idelta_start) > 1e-7 :
+            Inew = Iold + Idelta
+            Vnew = self.V2T(Inew)
             if not math.isfinite(Vnew):
-                Jdelta /= stepratio                
+                Idelta /= stepratio                
             elif (Vnew < V) and (V <= Voc):
-                Jdelta /= stepratio
+                Idelta /= stepratio
             elif (Vnew > V) and (V > Voc):
-                Jdelta /= stepratio
+                Idelta /= stepratio
             else:
-                Jold = Jnew
-                Jtrace.append(Jold)
+                Iold = Inew
+                Itrace.append(Iold)
             
             count +=1
             if count > MAXITER: 
-                Jold = np.nan
+                Iold = np.nan
                 break
         
-        return Jold
+        return Iold
     
     def proplist(self, key):
         #list of junction properties
@@ -160,17 +192,17 @@ class Multi2T(object):
         return self.V2T(0.)
 
     @property
-    def Jsc(self):
-        return abs(self.J2T(0.))
+    def Isc(self):
+        return abs(self.I2T(0.))
        
     
     def MPP(self, pnts=11, bplot=False):
-        # calculate maximum power point and associated IV, Vmp, Jmp, FF     
+        # calculate maximum power point and associated IV, Vmp, Imp, FF     
         #res=0.001   #voltage resolution
  
         ts = time()
-        Jlo = -self.Jsc
-        Jhi = 0.    #1mA forward
+        Ilo = -self.Isc
+        Ihi = 0.    #1mA forward
         #ndarray functions
         V2Tvect = np.vectorize(self.V2T)
       
@@ -178,7 +210,7 @@ class Multi2T(object):
         if math.isclose(max(Jext_list), 0., abs_tol=1e-6) :
              self.Pmp = np.nan
              self.Vmp = np.nan
-             self.Jmp = np.nan
+             self.Imp = np.nan
              self.FF = np.nan
 
         else:
@@ -193,33 +225,33 @@ class Multi2T(object):
                 axr.set_ylabel('Power (W)',c='cyan')
         
             for i in range(5):
-                Jtemp = np.linspace(Jlo, Jhi, pnts)
-                Vtemp = np.array([self.V2T(J) for J in Jtemp])
-                Vtemp = V2Tvect(Jtemp)
-                Ptemp = np.array([(-v*j) for v, j in zip(Vtemp, Jtemp)])
+                Itemp = np.linspace(Ilo, Ihi, pnts)
+                Vtemp = np.array([self.V2T(I) for I in Itemp])
+                Vtemp = V2Tvect(Itemp)
+                Ptemp = np.array([(-v*j) for v, j in zip(Vtemp, Itemp)])
                 nmax = np.argmax(Ptemp)
                 if bplot:
-                    ax.plot(Vtemp, Jtemp, marker='.', ls='')
+                    ax.plot(Vtemp, Itemp, marker='.', ls='')
                     axr.plot(Vtemp, Ptemp, marker='.', ls='', c='cyan')              
-                    print(nmax, Jlo, Jhi, Ptemp[nmax])
-                Jlo = Jtemp[max(0,(nmax-1))]
-                Jhi = Jtemp[min((nmax+1),(pnts-1))]
+                    print(nmax, Ilo, Ihi, Ptemp[nmax])
+                Ilo = Itemp[max(0,(nmax-1))]
+                Ihi = Itemp[min((nmax+1),(pnts-1))]
  
                 
             self.Pmp = Ptemp[nmax]
             self.Vmp = Vtemp[nmax]
-            self.Jmp = abs(Jtemp[nmax])
-            self.FF = abs((self.Vmp * self.Jmp) / (self.Voc * self.Jsc))
+            self.Imp = abs(Itemp[nmax])
+            self.FF = abs((self.Vmp * self.Imp) / (self.Voc * self.Isc))
             
             self.Vpoints = [0., self.Vmp, self.Voc]
-            self.Jpoints = [-self.Jsc, -self.Jmp, 0.]
+            self.Ipoints = [-self.Isc, -self.Imp, 0.]
             if bplot: 
-                ax.plot(self.Vpoints,self.Jpoints,\
+                ax.plot(self.Vpoints,self.Ipoints,\
                 marker='x',ls='', ms=12, c='black')  #special points
                 axr.plot(self.Vmp, self.Pmp, marker='o', fillstyle='none', ms=12, c='black')
         
-        mpp_dict = {"Voc":self.Voc, "Jsc":self.Jsc, "Vmp":self.Vmp, \
-                    "Jmp":self.Jmp, "Pmp":self.Pmp,  "FF":self.FF}
+        mpp_dict = {"Voc":self.Voc, "Isc":self.Isc, "Vmp":self.Vmp, \
+                    "Imp":self.Imp, "Pmp":self.Pmp,  "FF":self.FF}
 
         te = time()
         ds=(te-ts)
@@ -233,94 +265,91 @@ class Multi2T(object):
         
         ts = time()
         Jext_list = self.proplist('Jext') #remember list external photocurrents 
-        Jmax = max(Jext_list)
+        areas = self.proplist('area')  #list of junction areas
+        Imax = max([j*a for j,a in zip(Jext_list,areas)])            
         Eg_list = self.proplist('Eg') #list of Eg 
         Egmax = sum(Eg_list)
 
         #ndarray functions
         V2Tvect = np.vectorize(self.V2T)
-        J2Tvect = np.vectorize(self.J2T)
+        I2Tvect = np.vectorize(self.I2T)
         
         if self.name :
             title += self.name 
             
-        # calc light JV
-        if not math.isclose(Jmax, 0., abs_tol=1e-6) :
+        # calc light IV
+        if not math.isclose(Imax, 0., abs_tol=1e-6) :
            
             self.MPP()   #determine max power point
             #horizonal portion
             VxV = np.linspace(Vmin, self.Voc, pnts)
-            #JxV = np.array([self.J2T(V) for V in VxV])
-            JxV = J2Tvect(VxV)
+            IxV = I2Tvect(VxV)
             #vertical portion
-            JxJ = np.linspace(-Jmax, Jmax*2, pnts)
-            #VxJ = np.array([self.V2T(J) for J in JxJ])
-            VxJ = V2Tvect(JxJ)
+            IxI = np.linspace(-Imax, Imax*2, pnts)
+            VxI = V2Tvect(IxI)
             #combine
-            Vboth = np.concatenate((VxV,VxJ),axis=None)
-            Jboth = np.concatenate((JxV,JxJ),axis=None)
+            Vboth = np.concatenate((VxV,VxI),axis=None)
+            Iboth = np.concatenate((IxV,IxI),axis=None)
             #sort
             p = np.argsort(Vboth)
             Vlight = Vboth[p]
-            Jlight = Jboth[p]
-            Plight = np.array([(-v*j) for v, j in zip(Vlight,Jlight)])
+            Ilight = Iboth[p]
+            Plight = np.array([(-v*j) for v, j in zip(Vlight,Ilight)])
             
-        # calc dark JV
+        # calc dark IV
         self.update(Jext = 0., JLC = 0.)   # turn lights off
         lolog = -8
         hilog = 2
         pdec = 3
         dpnts=((hilog-lolog)*pdec+1)
-        Jdark = np.logspace(lolog, hilog, num=dpnts)
+        Idark = np.logspace(lolog, hilog, num=dpnts)
         Vdark = np.full(dpnts, np.nan, dtype=np.float64) # Vtotal
         Vdarkmid = np.full((dpnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
-        for i, J in enumerate(Jdark):
-            Vdark[i] = self.V2T(J)  # also sets self.Vmid[i]
+        for ii, I in enumerate(Idark):
+            Vdark[ii] = self.V2T(I)  # also sets self.Vmid[i]
             for junc in range(self.njunc):
-                Vdarkmid[i,junc] = self.Vmid[junc]       
-        #self.Vdark = np.array([self.V2T(J) for J in self.Jdark])
-        #self.Vdark = V2Tvect(self.Jdark)
+                Vdarkmid[ii,junc] = self.Vmid[junc]       
         self.update(Jext = Jext_list, JLC = 0.)  # turn lights back on
                 
         #dark plot
         dfig, dax = plt.subplots()
-        dax.plot(Vdark, Jdark, lw=2, c='black')  #JV curve
+        dax.plot(Vdark, Idark, lw=2, c='black')  #IV curve
         for junc in range(Vdarkmid.shape[1]):  #plot Vdiode of each junction
-            dax.plot(Vdarkmid[:, junc], Jdark, lw=2)
+            dax.plot(Vdarkmid[:, junc], Idark, lw=2)
                  
         dax.set_yscale("log") #logscale   
         dax.set_xlim(0, 4.3) #Egmax*1.1)
         dax.grid(color='gray')
         dax.set_title(title + ' Dark')  # Add a title to the axes.
         dax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
-        dax.set_ylabel('Current Density (A/cm2)')  # Add a y-label to the axes.
+        dax.set_ylabel('Current (A)')  # Add a y-label to the axes.
      
         # light plot        
         lfig, lax = plt.subplots()
-        lax.plot(Vdark, Jdark, lw=2, c='green')  # dark JV curve
-        lax.plot(Vlight, Jlight, lw=2, c='red')  #JV curve         
-        lax.plot(self.Vpoints,self.Jpoints,\
+        lax.plot(Vdark, Idark, lw=2, c='green')  # dark IV curve
+        lax.plot(Vlight, Ilight, lw=2, c='red')  #IV curve         
+        lax.plot(self.Vpoints,self.Ipoints,\
                 marker='x',ls='', ms=12, c='black')  #special points
         if pplot:  # power curve
             laxr = lax.twinx()
             laxr.plot(Vlight, Plight,ls='--',c='cyan')
             laxr.set_ylabel('Power (W)',c='cyan')
         lax.set_xlim( (Vmin-0.1), min(Egmax,self.Voc*1.1))
-        lax.set_ylim(-Jmax*1.5,Jmax*1.5)
+        lax.set_ylim(-Imax*1.5,Imax*1.5)
         lax.set_title(title + ' Dark')  # Add a title to the axes.
         lax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
-        lax.set_ylabel('Current Density (A/cm2)')  # Add a y-label to the axes.
+        lax.set_ylabel('Current (A)')  # Add a y-label to the axes.
         lax.axvline(0, ls='--', c='gray')
         lax.axhline(0, ls='--', c='gray')
         
         # annotate
-        snote = 'T = {0:.1f} C, Rser = {1:g} Ω'.format(self.TC, self.Rser) 
+        snote = 'T = {0:.1f} C, Rser = {1:g} Ω cm2, A = {2:g} cm2'.format(self.TC, self.Rser, self.area) 
         snote += '\nEg = '+str(Eg_list) + ' eV'
         snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
-        snote += '\nVoc = {0:.2f} V, Jsc = {1:.1f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
-            .format(self.Voc, self.Jsc*1000, self.FF*100, self.Pmp*1000)
+        snote += '\nVoc = {0:.2f} V, Isc = {1:.1f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
+            .format(self.Voc, self.Isc*1000, self.FF*100, self.Pmp*1000)
             
-        lax.text(Vmin+0.1,Jmax/2,snote,bbox=dict(facecolor='white'))
+        lax.text(Vmin+0.1,Imax/2,snote,bbox=dict(facecolor='white'))
             
         te = time()
         ds=(te-ts)
