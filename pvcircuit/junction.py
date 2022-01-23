@@ -40,7 +40,7 @@ class Junction(object):
     :param Rs: series resistance [ohms]
     """
     
-    ATTR = ['Eg', 'TC', 'Gsh', 'Rser', 'area', 'Jext', 'JLC', 'beta', 'gamma']          
+    ATTR = ['Eg', 'TC', 'Gsh', 'Rser', 'lightarea', 'totalarea', 'Jext', 'JLC', 'beta', 'gamma']          
 
     def __init__(self, name='junc', Eg=Eg_DEFAULT, TC=TC_REF, \
                  Gsh=0., Rser=0., area=AREA_DEFAULT, \
@@ -55,7 +55,8 @@ class Junction(object):
         self.Jext = np.float64(Jext)   #: [A/cm2] photocurrent density
         self.Gsh = np.float64(Gsh)  #: [mho] shunt conductance=1/Rsh
         self.Rser = np.float64(Rser)  #: [ohm] series resistance
-        self.area = np.float64(area)   # [cm2] junction area
+        self.lightarea = np.float64(area)   # [cm2] illuminated junction area
+        self.totalarea = np.float64(area)   # [cm2] total junction area including shaded areas
         #used for tandems only
         self.pn = int(pn)     # p-on-n=1 or n-on-p=-1
         self.beta = np.float64(beta)    # LC parameter
@@ -88,17 +89,18 @@ class Junction(object):
         strout += '\n Eg = {0:.2f} eV, TC = {1:.1f} C, Jext = {2:.1f} mA/cm2' \
             .format(self.Eg, self.TC, self.Jext*1000.)
 
-        strout += '\n Gsh = {0:g} S, Rser = {1:g} Ω cm2, area = {2:g} cm2' \
-            .format(self.Gsh, self.Rser, self.area)
+        strout += '\n Gsh = {0:g} S, Rser = {1:g} Ω cm2, lightA = {2:g} cm2, totalA = {3:g} cm2' \
+            .format(self.Gsh, self.Rser, self.lightarea, self.totalarea)
             
         strout += '\n pn = {0:d}, beta = {1:g}, gamma = {2:g}, JLC = {3:.1f}' \
             .format(self.pn, self.beta, self.gamma, self.JLC)
 
-        i=0
         strout += '\n   {0:^5s} {1:^10s} {2:^10s}' \
             .format('n','J0ratio', 'J0')
         strout += '\n   {0:^5s} {1:^10.0f} {2:^10.3e}' \
             .format('db', 1., self.Jdb)
+
+        i=0
         for ideality_factor,ratio, saturation_current in zip(self.n, self.J0ratio, self.J0):
             strout += '\n   {0:^5.2f} {1:^10.2f} {2:^10.3e}' \
                 .format(self.n[i], self.J0ratio[i], self.J0[i])
@@ -126,20 +128,29 @@ class Junction(object):
                     self.__dict__['RBB_dict'] = {'method':'bishop','mrb':3.28, 'avalanche':1., 'Vrb':-5.5}
                 else:
                     self.__dict__['RBB_dict'] =  {'method': None}  #no RBB
-            elif key == 'name':
+            elif key == 'area':
+                self.__dict__['lightarea'] = np.float64(value) 
+                self.__dict__['totalarea'] = np.float64(value) 
+            elif key == 'name': # strings
                 self.__dict__[key] = str(value)
-            elif key == 'pn':
+            elif key == 'pn': # integers
                 self.__dict__[key] = int(value)
             elif key == 'RBB_dict':
                 self.__dict__[key] = value
-            elif key in ['n','J0ratio']:
+            elif key in ['n','J0ratio']: # array
                 self.__dict__[key] = np.array(value)
-            else:
+            else: # scalar
                 self.__dict__[key] = np.float64(value)
                                 
     @property
-    def Jphoto(self): return self.Jext + self.JLC 
-        #total photocurrent
+    def area(self):
+        # largest junction area
+        return max(self.lightarea,self.totalarea)
+
+    @property
+    def Jphoto(self): return self.Jext * self.lightarea / self.totalarea + self.JLC 
+        # total photocurrent
+        # external illumination is distributed over total area
                
     @property
     def TK(self): return TK(self.TC)

@@ -90,9 +90,14 @@ class Tandem3T(object):
                             junc.__dict__[key] = value[i]
     
     @property
-    def area(self):
-        # largest junction area
-        return max(self.top.area,self.bot.area)
+    def totalarea(self):
+        # largest junction total area
+        return max(self.top.totalarea,self.bot.totalarea)
+    
+    @property
+    def lightarea(self):
+        # largest junction light area
+        return max(self.top.lightarea,self.bot.lightarea)
     
     def V3T(self,iv3T):
         '''
@@ -127,9 +132,9 @@ class Tandem3T(object):
                 continue
            
             #input current densities
-            Jt = Ito / top.area
-            Jr = Iro / bot.area
-            Jz = Izo / self.area
+            Jt = Ito / top.totalarea
+            Jr = Iro / bot.totalarea
+            Jz = Izo / self.totalarea
             
             # top Junction
             top.JLC = 0.
@@ -138,17 +143,24 @@ class Tandem3T(object):
             
             # bot Junction
             bot.JLC = bot.beta * top.Jem(Vtmid * top.pn)    # top to bot LC
+            if top.totalarea < bot.totalarea: # distribute LC over total area
+                bot.JLC *= top.totalarea / bot.totalarea
+
             Vrmid = bot.Vdiode(Jr * bot.pn) * bot.pn
             Vr = Vrmid + Jr * bot.Rser
             
             if top.beta > 0.:   # repeat if backwards LC
                 # top Junction
                 top.JLC = top.beta * bot.Jem(Vrmid * bot.pn)    # bot to top LC
+                if bot.totalarea < top.totalarea: # distribute LC over total area
+                    top.JLC *= bot.totalarea / top.totalarea
                 Vtmid = top.Vdiode(Jt * top.pn) * top.pn
                 Vt = Vtmid + Jt * top.Rser
                 
                 # bot Junction
                 bot.JLC = bot.beta * top.Jem(Vtmid * top.pn)    # top to bot LC
+                if top.totalarea < bot.totalarea: # distribute LC over total area
+                    bot.JLC *= top.totalarea / bot.totalarea
                 Vrmid = bot.Vdiode(Jr * bot.pn) * bot.pn
                 Vr = Vrmid + Jr * bot.Rser
                 
@@ -200,7 +212,10 @@ class Tandem3T(object):
                 Jt = -top.Jparallel(Vtmid * top.pn,top.Jphoto) * top.pn
          
             # bot Junction
-            bot.JLC = bot.beta * top.Jem(Vtmid)   # top to bot LC
+            bot.JLC = bot.beta * top.Jem(Vtmid * top.pn)   # top to bot LC
+            if top.totalarea < bot.totalarea: # distribute LC over total area
+                bot.JLC *= top.totalarea / bot.totalarea
+                
             if bot.notdiode():  # bot resistor only
                 Vrmid = 0.
                 Jr = Vr / bot.Rser
@@ -210,7 +225,10 @@ class Tandem3T(object):
             
             if top.beta > 0.:   # repeat if backwards LC
                 # top Junction
-                top.JLC = top.beta * bot.Jem(Vrmid)    # bot to top LC
+                top.JLC = top.beta * bot.Jem(Vrmid * bot.pn)    # bot to top LC
+                if bot.totalarea < top.totalarea: # distribute LC over total area
+                    top.JLC *= bot.totalarea / top.totalarea
+                    
                 if top.notdiode():  # top resistor only
                     Vtmid = 0.
                     Jt = Vt / top.Rser
@@ -219,7 +237,10 @@ class Tandem3T(object):
                     Jt = -top.Jparallel(Vtmid * top.pn,top.Jphoto) * top.pn
          
                 # bot Junction
-                bot.JLC = bot.beta * top.Jem(Vtmid)   # top to bot LC
+                bot.JLC = bot.beta * top.Jem(Vtmid * top.pn)   # top to bot LC
+                if top.totalarea < bot.totalarea: # distribute LC over total area
+                    bot.JLC *= top.totalarea / bot.totalarea
+                    
                 if bot.notdiode():  # bot resistor only
                     Vrmid = 0.
                     Jr = Vr / bot.Rser
@@ -229,7 +250,7 @@ class Tandem3T(object):
  
             # extra Z contact
             if self.Rz == 0.:
-                Jz = (-Jt* top.area - Jr* bot.area ) / self.area   # determine from kirchhoff    
+                Jz = (-Jt* top.totalarea - Jr* bot.totalarea ) / self.totalarea   # determine from kirchhoff    
             else:
                 Jz = Vz / self.Rz   # determine from Rz
             
@@ -262,9 +283,9 @@ class Tandem3T(object):
         Jzo = temp3T.Izo[0]
         Jto = temp3T.Ito[0]
         
-        Iro = Jro * bot.area
-        Izo = Jzo * self.area
-        Ito = Jto * top.area
+        Iro = Jro * bot.totalarea
+        Izo = Jzo * self.totalarea
+        Ito = Jto * top.totalarea
         
         return Iro + Izo + Ito
     
@@ -362,9 +383,9 @@ class Tandem3T(object):
                     Jto = np.nan
                     
             #output
-            iv3T.Iro.flat[i] = Jro * bot.area
-            iv3T.Izo.flat[i] = Jzo * self.area
-            iv3T.Ito.flat[i] = Jto * top.area
+            iv3T.Iro.flat[i] = Jro * bot.totalarea
+            iv3T.Izo.flat[i] = Jzo * self.totalarea
+            iv3T.Ito.flat[i] = Jto * top.totalarea
             i += 1
             
         iv3T.kirchhoff(['Vzt', 'Vrz'])   # Vtr not used so make sure consistent
@@ -510,9 +531,9 @@ class Tandem3T(object):
             pt.Vzt[0] = 0.
             #top
             tmptop = self.top.copy()  # copy for temporary calculations
-            tmptop.update(Rser = top.Rser + self.Rz / self.area * top.area , JLC=0.) # correct Rz by area ratio
+            tmptop.update(Rser = top.Rser + self.Rz / self.totalarea * top.totalarea , JLC=0.) # correct Rz by area ratio
             Vtmid = tmptop.Vmid(pt.Vzt[0] * top.pn) * top.pn
-            pt.Ito[0] = -tmptop.Jparallel(Vtmid * top.pn, tmptop.Jphoto) * top.pn * top.area 
+            pt.Ito[0] = -tmptop.Jparallel(Vtmid * top.pn, tmptop.Jphoto) * top.pn * top.totalarea 
             pt.Izo[0] = - pt.Ito[0]  # from Kirchhoff
             self.V3T(pt)   # calc Vs from Is
             # bot to top LC?
@@ -523,13 +544,16 @@ class Tandem3T(object):
             #top
             tmptop = self.top.copy()  # copy for temporary calculations
             tmptop.JLC=0.
-            Vtmid = tmptop.Vdiode(pt.Ito[0] / top.area * top.pn) * top.pn
+            Vtmid = tmptop.Vdiode(pt.Ito[0] / top.totalarea * top.pn) * top.pn
             #bot
             tmpbot = self.bot.copy()
-            tmpbot.update(Rser = bot.Rser + self.Rz / self.area * bot.area) # correct Rz by area ratio
+            tmpbot.update(Rser = bot.Rser + self.Rz / self.totalarea * bot.totalarea) # correct Rz by area ratio
             tmpbot.JLC = bot.beta * tmptop.Jem(Vtmid * top.pn)   # top to bot LC
+            if top.totalarea < bot.totalarea: # distribute LC over total area
+                tmpbot.JLC *= top.totalarea / bot.totalarea
+
             Vrmid = tmpbot.Vmid(pt.Vrz[0] * bot.pn) * bot.pn
-            pt.Iro[0] = -tmpbot.Jparallel(Vrmid * bot.pn, tmpbot.Jphoto) * bot.pn * bot.area 
+            pt.Iro[0] = -tmpbot.Jparallel(Vrmid * bot.pn, tmpbot.Jphoto) * bot.pn * bot.totalarea 
             pt.Izo[0] = -pt.Iro[0] # Kirchhoff
             self.V3T(pt)   # calc Vs from Is
             # bot to top LC?
@@ -668,6 +692,7 @@ class Tandem3T(object):
         cmap = plt.cm.get_cmap(cmap)  # start with existing cmap
         cmap.set_under(color='white')  # white for Ptot < 0 and nan
         sp = self.specialpoints(meastype)
+        colors = ['white','lightgreen','lightgray','pink','orange','cyan'] 
         Vmax = max(abs(sp.Vzt[0]), abs(sp.Vrz[0]), abs(sp.Vtr[0])) 
         Imax = max(abs(sp.Iro[1]), abs(sp.Izo[1]), abs(sp.Ito[1]))
         ii = sp.names.index('MPP')  # index of MPP from sp
@@ -734,9 +759,10 @@ class Tandem3T(object):
                 self.V3T(iv[i])   # calculate V(I)
               
             sp.append(iv[i].MPP(VorI))  #append MPP of current iv[i] to special points
+            '''colors.append('brown')
+            markers.append('^')
+            '''
             
-            #print(iv3T)
-            #return iv3T
             # plot 2D iv3T
             if VorI == 'I':
                 #use mA for current
@@ -795,7 +821,8 @@ class Tandem3T(object):
             xp = getattr(sp, xkey) * scale
             yp = getattr(sp, ykey) * scale
             #ax.plot(xp, yp, marker='o', fillstyle='none', mew=2, ls='', ms=6, c='red')
-            ax.scatter(xp, yp, marker='^', s=100, c='red', edgecolors='black')
+            ax.scatter(xp[:6], yp[:6], marker='o', s=150, c=colors, edgecolors='black', \
+                linewidths = 2, zorder=5)
             #colorbar
             cb = plt.colorbar(imag, ax=ax, shrink=0.8, ticks=levels)
             cb.set_label('Power (mW)')
