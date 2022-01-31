@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt   #plotting
 from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
 import scipy.constants as con   #physical constants
+import ipywidgets as widgets
+from IPython.display import display
 
 # constants
 k_q = con.k/con.e
@@ -40,7 +42,8 @@ class Junction(object):
     :param Rs: series resistance [ohms]
     """
     
-    ATTR = ['Eg', 'TC', 'Gsh', 'Rser', 'lightarea', 'totalarea', 'Jext', 'JLC', 'beta', 'gamma']          
+    ATTR = ['Eg','TC','Gsh','Rser','lightarea','totalarea','Jext','JLC','beta','gamma','pn']          
+    ARY_ATTR = ['n','J0ratio']
 
     def __init__(self, name='junc', Eg=Eg_DEFAULT, TC=TC_REF, \
                  Gsh=0., Rser=0., area=AREA_DEFAULT, \
@@ -75,10 +78,12 @@ class Junction(object):
 
     def copy(self):
         '''
-        create a separate complete copy of a junction
+        create a copy of a Junction
+        need deepcopy() to separate lists, dicts, etc but crashes
         '''
-        return copy.deepcopy(self)
         
+        return copy.copy(self)
+
     def __str__(self):
         #attr_list = self.__dict__.keys()
         #attr_dict = self.__dict__.items()
@@ -86,23 +91,29 @@ class Junction(object):
         
         strout = self.name+": <tandem.Junction class>"
                     
-        strout += '\n Eg = {0:.2f} eV, TC = {1:.1f} C, Jext = {2:.1f} mA/cm2' \
-            .format(self.Eg, self.TC, self.Jext*1000.)
-
-        strout += '\n Gsh = {0:g} S, Rser = {1:g} Ω cm2, lightA = {2:g} cm2, totalA = {3:g} cm2' \
-            .format(self.Gsh, self.Rser, self.lightarea, self.totalarea)
+        strout += '\nEg = {0:.2f} eV, TC = {1:.1f} C' \
+            .format(self.Eg, self.TC)
             
-        strout += '\n pn = {0:d}, beta = {1:g}, gamma = {2:g}, JLC = {3:.1f}' \
+        strout += '\nJext = {0:.1f} , JLC = {1:.1f} mA/cm2' \
+            .format( self.Jext*1000., self.JLC*1000.)
+
+        strout += '\nGsh = {0:g} S, Rser = {1:g} Ωcm2' \
+            .format(self.Gsh, self.Rser)
+            
+        strout += '\nlightA = {0:g} cm2, totalA = {1:g} cm2' \
+            .format(self.lightarea, self.totalarea)
+            
+        strout += '\npn = {0:d}, beta = {1:g}, gamma = {2:g}' \
             .format(self.pn, self.beta, self.gamma, self.JLC)
 
-        strout += '\n   {0:^5s} {1:^10s} {2:^10s}' \
-            .format('n','J0ratio', 'J0')
-        strout += '\n   {0:^5s} {1:^10.0f} {2:^10.3e}' \
+        strout += '\n {0:^5s} {1:^10s} {2:^10s}' \
+            .format('n','J0ratio', 'J0(A/cm2)')
+        strout += '\n {0:^5s} {1:^10.0f} {2:^10.3e}' \
             .format('db', 1., self.Jdb)
 
         i=0
         for ideality_factor,ratio, saturation_current in zip(self.n, self.J0ratio, self.J0):
-            strout += '\n   {0:^5.2f} {1:^10.2f} {2:^10.3e}' \
+            strout += '\n {0:^5.2f} {1:^10.2f} {2:^10.3e}' \
                 .format(self.n[i], self.J0ratio[i], self.J0[i])
             i+=1
         
@@ -114,11 +125,12 @@ class Junction(object):
     def __repr__(self):
         return str(self)
 
-    '''def __setattr__(self, key, value):
+    '''
+    def __setattr__(self, key, value):
+        # causes problems
         super(Junction, self).__setattr__(key, value) 
         self.update(key = value)
-   '''
-    
+    '''
     def update(self, **kwargs):
         for key, value in kwargs.items():
             if key == 'RBB':
@@ -139,13 +151,24 @@ class Junction(object):
                 self.__dict__[key] = value
             elif key in ['n','J0ratio']: # array
                 self.__dict__[key] = np.array(value)
-            else: # scalar
+            elif key == 'n[0]':
+                self.n[0] =  np.float64(value)
+            elif key == 'n[1]':
+                self.n[1] =  np.float64(value)
+            elif key == 'n[2]':
+                self.n[2] =  np.float64(value)
+            elif key == 'n[3]':
+                self.n[3] =  np.float64(value)
+            elif key == 'J0ratio[0]':
+                self.J0ratio[0] =  np.float64(value)
+            elif key == 'J0ratio[1]':
+                self.J0ratio[1] =  np.float64(value)
+            elif key == 'J0ratio[2]':
+                self.J0ratio[2] =  np.float64(value)
+            elif key == 'J0ratio[3]':
+                self.J0ratio[3] =  np.float64(value)
+            else: # scalar float
                 self.__dict__[key] = np.float64(value)
-                                
-    @property
-    def area(self):
-        # largest junction area
-        return max(self.lightarea,self.totalarea)
 
     @property
     def Jphoto(self): return self.Jext * self.lightarea / self.totalarea + self.JLC 
@@ -216,8 +239,12 @@ class Junction(object):
         '''
         is this junction really a diode
         or just a resistor
-        sum(J0) = 0 -> no diode
+        sum(J0) = 0 -> not diode
+        pn = 0 -> not diode
         '''
+        if self.pn == 0:
+            return True
+            
         jsum = np.float64(0.)
         for saturation_current in self.J0:
             jsum +=saturation_current
@@ -316,7 +343,7 @@ class Junction(object):
         if self.notdiode():  # sum(J0)=0 -> no diode
             return 0.
 
-        Jtot=self.Jphoto+Jdiode
+        Jtot = self.Jphoto + Jdiode
         
         try: 
             Vdiode = brentq(self.Jparallel, -VLIM_REVERSE, VLIM_FORWARD, args=(Jtot),
@@ -360,119 +387,133 @@ class Junction(object):
       
         return Vmid
  
-    def Jdiode(self,Vtot):
+    def controls(self):
         '''
-        return J for Vtot
+        use interactive_output for GUI in IPython
         '''
-        return  self.Jparallel(self.Vmid(Vtot),self.Jphoto)       
-
-    #single junction cell 
-
-    def Jcell(self,Vcell):
-        #Vcell, Jcell are iterable
-
-        Jcell=[]    #empty list
         
-        for Vtot in Vcell:
-             Jcell.append(-self.Jdiode(Vtot)) 
-          
-        return Jcell
-
-    def Vcell(self,Jcell):
-        #Vcell, Jcell are iterable
-
-        Vcell=[]    #empty list
-        
-        for Jdiode in Jcell:
-            try:
-                Vtot=self.Vdiode(Jdiode) + Jdiode * self.Rser
-            except:
-                Vtot=None
-                
-            Vcell.append(Vtot) 
-          
-        return Vcell
-
-    @property
-    def Voc(self):
-        #Jdiode=0
-        return self.Vdiode(0.) 
-        
-    @property
-    def Jsc(self):
-        #Vtot=0
-        return self.Jdiode(0.)
-    
-    @property
-    def MPP(self):
-        # calculate maximum power point and associated IV, Vmp, Jmp, FF
-        
-        ts = time()
-        res=0.001   #voltage resolution
-        if self.Jphoto > 0.: #light JV
-            self.Vsingle = list(np.arange(-0.2, (self.Voc*1.02), res))
-            self.Jsingle = self.Jcell(self.Vsingle)
-            self.Psingle = [(-v*j) for v, j in zip(self.Vsingle,self.Jsingle)]
-            nmax = np.argmax(self.Psingle)
-            self.Vmp = self.Vsingle[nmax]
-            self.Jmp = self.Jsingle[nmax]
-            self.Pmp = self.Psingle[nmax]
-            self.FF = abs((self.Vmp * self.Jmp) / (self.Voc * self.Jsc))
+        cell_layout = widgets.Layout(display='inline_flex',
+                            flex_flow='row',
+                            justify_content='flex-end',
+                            width='180px')  
+        # controls 
+        in_name = widgets.Text(value=self.name,description='name',layout=cell_layout)                        
+        in_Eg = widgets.BoundedFloatText(value=self.Eg, min=0.1,max=3.0,step=0.1,
+            description='Eg (eV)',layout=cell_layout)
+        in_TC = widgets.BoundedFloatText(value=self.TC, min=0., max=500.,step=0.1,
+            description='T (°C)',layout=cell_layout)
+        in_Jext = widgets.BoundedFloatText(value=self.Jext, min=0., max=.080,step=0.001,
+            description='Jext (A/cm2)',layout=cell_layout)
+        in_JLC = widgets.BoundedFloatText(value=self.JLC, min=0., max=.080,step=0.001,
+            description='JLC (A/cm2)',layout=cell_layout)
+        in_Gsh = widgets.BoundedFloatText(value=self.Gsh, min=0. ,step=0.1,
+            description='Gsh (S)',layout=cell_layout)
+        in_Rser= widgets.BoundedFloatText(value=self.Rser, min=0., step=0.1,
+            description='Rser (Ωcm2)',layout=cell_layout)
+        in_lightarea = widgets.BoundedFloatText(value=self.lightarea, min=1.e-6, max=1000.,step=0.1,
+            description='Alight (cm2)',layout=cell_layout)
+        in_totalarea = widgets.BoundedFloatText(value=self.totalarea, min=self.lightarea, max=1000.,step=0.1,
+            description='Atotal (cm2)',layout=cell_layout)
+        in_beta = widgets.BoundedFloatText(value=self.beta, min=0., max=50.,step=0.1,
+            description='beta',layout=cell_layout)
+        in_gamma = widgets.BoundedFloatText(value=self.gamma, min=0., max=3.0,step=0.1,
+            description='gamma',layout=cell_layout)
+        in_pn = widgets.BoundedIntText(value=self.pn,min=-1,max=1,
+            description='pn',layout=cell_layout)
             
-            self.Vpoints = [0., self.Vmp, self.Voc]
-            self.Jpoints = [-self.Jsc, self.Jmp, 0.]
+        #linkages
+        arealink = widgets.dlink((in_lightarea,'value'), (in_totalarea,'min'))
             
-        else:   #dark JV
-            self.Jsingle = list(np.logspace(-13., 7., num=((13+7)*3+1)))
-            self.Vsingle = self.Vcell(self.Jsingle)
-            self.Vmp = None
-            self.Jmp = None
-            self.Pmp = None
-            self.FF = None
-            self.Vpoints = None
-            self.Jpoints = None
- 
-        mpp_dict = {"Voc":self.Voc, "Jsc":self.Jsc, \
-                    "Vmp":self.Vmp,"Jmp":self.Jmp, \
-                    "Pmp":self.Pmp, "FF":self.FF}
-                        
-        te = time()
-        ms=(te-ts)*1000.
-        #print(f'MPP: {res:g}V , {ms:2.4f} ms')
-        
-        return mpp_dict
-                                            
-    def plot(self,title=None):
-        #plot a single junction
-        
-        if self.name:
-            title = self.name + title
-                       
-        self.MPP   #generate IV curve and analysis
-        
-        fig, ax = plt.subplots()
-        ax.plot(self.Vsingle,self.Jsingle)  #JV curve
-        ax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
-        ax.set_ylabel('Current Density (A/cm2)')  # Add a y-label to the axes.
-        ax.grid()
-        if self.Jphoto > 0.: #light JV
-            ax.plot(self.Vpoints,self.Jpoints,\
-                    marker='o',ls='',ms=12,c='#000000')  #special points
-            #ax.scatter(self.Vpoints,self.Jpoints,s=100,c='#000000',marker='o')  #special points
-            axr = ax.twinx()
-            axr.plot(self.Vsingle, self.Psingle,ls='--',c='red')
-            axr.set_ylabel('Power (W)')
+        attr = ['name']+self.ATTR.copy()
+        cntrls = [in_name, in_Eg,in_TC,in_Gsh,in_Rser,in_lightarea,in_totalarea,
+                in_Jext,in_JLC,in_beta,in_gamma,in_pn]
+        sing_dict = dict(zip(attr,cntrls))
+        singout = widgets.interactive_output(self.update, sing_dict)
+        #singout.observe(self.ioutupdate)
 
-            snote = 'Eg = {0:.2f} eV, Jpc = {1:.1f} mA/cm2, T = {2:.1f} C'\
-                .format(self.Eg, self.Jphoto*1000, self.TC)
-            snote += '\nGsh = {0:.1e} S, Rser = {1:g} Ω, A = {2:g} cm2 '\
-                .format(self.Gsh, self.Rser, self.area)
-            snote += '\nVoc = {0:.2f} V, Jsc = {1:.1f} mA/cm2, FF = {2:.1f}%'\
-                .format(self.Voc, self.Jsc*1000, self.FF*100)
-            ax.text(-0.2,0,snote,bbox=dict(facecolor='white'))
-            ax.set_title(title + " Light")  # Add a title to the axes.
-        else:
-            ax.set_yscale("log")
-            ax.set_title(title + " Dark")  # Add a title to the axes.
-    
-        return fig
+        def on_change(change):
+            # function for changing values
+            old = change['old'] #old value
+            new = change['new'] #new value
+            owner = change['owner'] #control
+            value = owner.value
+            desc = owner.description
+            
+            self.iout.clear_output()
+            with self.iout: # output device
+                print(desc, old, new)
+                #print(change)
+                #print(self)
+                if owner == in_totalarea:
+                   #print("in_totalarea",in_lightarea.value)
+                   pass
+
+        
+        # button
+        #in_but = widgets.Button(description="update",layout=cell_layout)
+        #in_but.on_click(self.ioutupdate)
+        #cntrls.append(in_but)
+
+        # diode array
+        in_tit = widgets.Label(value='Junction')
+        in_lab = widgets.Label(value='diodes:')
+        diode_layout = widgets.Layout(flex_flow='column',align_items='center',width='100px')    
+        
+        cntrls.append(in_lab)
+        in_n = []  # empty list of n controls
+        in_ratio = [] # empty list of Jratio controls
+        hui = []
+        diode_dict = {} 
+        for i in range(len(self.n)):
+            in_n.append(widgets.BoundedFloatText(value=self.n[i], min=0.1, max=3.0, step=0.1,
+                description='n['+str(i)+']',layout=cell_layout))
+            in_ratio.append(widgets.BoundedFloatText(value=self.J0ratio[i], min=0, max=10000,
+                description='J0ratio['+str(i)+']',layout=cell_layout))
+            cntrls.append(in_n[i])
+            cntrls.append(in_ratio[i])
+            diode_dict['n['+str(i)+']'] = in_n[i]
+            diode_dict['J0ratio['+str(i)+']'] = in_ratio[i]  
+            #hui.append(widgets.HBox([in_n[i],in_ratio[i]])) 
+            #cntrls.append(hui[i])
+          
+        #print(sing_dict)
+        #print(diode_dict)            
+        diodeout = widgets.interactive_output(self.update, diode_dict)
+        #diodeout.observe(self.ioutupdate)
+       
+        for cntrl in cntrls:
+            cntrl.observe(on_change,names='value')
+
+        #output
+        self.iout = widgets.Output()
+        self.iout.layout.height = '50px'
+        cntrls.append(self.iout)
+        
+        # user interface        
+        box_layout = widgets.Layout(display='flex',
+                            flex_flow='column',
+                            align_items='center',
+                            border='1px solid black',
+                            width='300px')
+                            
+        ui = widgets.VBox([in_tit] + cntrls,layout=box_layout)
+        
+        return ui
+
+
+    def ioutupdate(self,change):
+        #self.iout.clear_output()       
+        with self.iout:
+            # put something calculated into the output
+            print(change)
+            '''
+            print(self)
+            mpp_dict=self.MPP
+            print('Voc = {0:.3f} V\
+                \nJsc = {1:.2f} mA/cm2\
+                \nFF = {2:.2f}%'.format( \
+                mpp_dict['Voc'], \
+                mpp_dict['Jsc']*1000, \
+                mpp_dict['FF']*100 ))
+            '''
+            

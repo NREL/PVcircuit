@@ -40,7 +40,7 @@ VERSION = 0.01
 
 __author__ = 'John Geisz'
 __email__ = u'john.geisz@nrel.gov'
-__url__ = u'https://www.nrel.gov/research/staff/john-geisz.html'
+__url__ = u'https://github.nrel.gov/jgeisz/PVcircuit'
 __version__ = VERSION
-__release__ = 'alpha'
+__release__ = 'development'
 __all__ = ['junction', 'multi2T', 'iv3T', 'tandem3T']

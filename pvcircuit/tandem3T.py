@@ -5,6 +5,7 @@ This is the PVcircuit Package.
 """
 
 import math   #simple math
+import copy
 from time import time
 import numpy as np   #arrays
 import matplotlib.pyplot as plt   #plotting
@@ -15,6 +16,8 @@ import scipy.constants as con   #physical constants
 from pvcircuit.junction import *
 from pvcircuit.iv3T import *
 from pvcircuit.multi2T import *
+import ipywidgets as widgets
+from IPython.display import display
                 
 class Tandem3T(object): 
     '''
@@ -30,7 +33,6 @@ class Tandem3T(object):
         update_now = False
         
         self.name = name
-        self.TC = TC
         self.Rz = Rz
         self.top = Junction(name='top', Eg=Eg_list[0], TC=TC, \
                             Jext = Jext, pn=pn[0], beta=0.)
@@ -42,9 +44,10 @@ class Tandem3T(object):
 
     def copy(self):
         '''
-        create a separate complete copy of a junction
+        create a copy of a Tandem3T
+        need deepcopy() to separate lists, dicts, etc but crashes
         '''
-        return copy.deepcopy(self)
+        return copy.copy(self)
 
 
     def __str__(self):
@@ -76,19 +79,24 @@ class Tandem3T(object):
                 self.__dict__[key] = np.array(value)
             elif key in ['top', 'bot', 'update_now']: 
                 self.__dict__[key] = value
-            elif key in ['Rz', 'TC']:
+            elif key in ['Rz']:
                 self.__dict__[key] = np.float64(value)
 
             if self.update_now:  # put appropriate values into junction attributes
                 jlist = Junction.ATTR.copy()
                 jlist.remove('Rser')
                 if key in jlist :                    
-                    for i, junc in enumerate(self.j):
+                    for i, junc in enumerate([self.top,self.bot]):
                         if np.isscalar(value):
                             junc.__dict__[key] = value
                         else:
                             junc.__dict__[key] = value[i]
     
+    @property
+    def TC(self):
+        # largest junction TC
+        return max(self.top.TC,self.bot.TC)
+
     @property
     def totalarea(self):
         # largest junction total area
@@ -680,6 +688,28 @@ class Tandem3T(object):
         sp.append(self.MPP(bplot=bplot))
         
         return sp
+        
+    def controls(self):
+        '''
+        use interactive_output for GUI in IPython
+        '''
+        tand_layout = widgets.Layout(width= '200px')
+        in_name = widgets.Text(value=self.name,description='name', layout=tand_layout)                        
+        in_Rz = widgets.BoundedFloatText(value=self.Rz, min=0., step=0.1,
+            description='Rz (Ωcm2)',layout=tand_layout)
+        tand_dict = {'name': in_name, 'Rz': in_Rz}
+ 
+        tandout = widgets.interactive_output(self.update, tand_dict)       
+        tand_ui = widgets.HBox([in_name, in_Rz])
+        
+        junc_layout = widgets.Layout(display='flex',
+                    flex_flow='row',
+                    justify_content='space-around')
+        uit = self.top.controls()
+        uib = self.bot.controls()
+        junc_ui = widgets.HBox([uit,uib], layout=junc_layout) 
+        ui = widgets.VBox([tand_ui, junc_ui]) 
+        return ui
         
     def plot(self, pnts=31, meastype='CZ', oper = 'load2dev', cmap='terrain'):
         '''

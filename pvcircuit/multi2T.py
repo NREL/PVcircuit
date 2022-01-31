@@ -5,6 +5,7 @@ This is the PVcircuit Package.
 """
 
 import math   #simple math
+import copy
 from time import time
 import numpy as np   #arrays
 import matplotlib.pyplot as plt   #plotting
@@ -26,7 +27,6 @@ class Multi2T(object):
         self.update_now = False
         
         self.name = name
-        self.TC = TC
         self.Rser = Rser 
         self.njunc = len(Eg_list)
         CM = .03 / self.njunc
@@ -36,15 +36,19 @@ class Multi2T(object):
             jname='j['+str(i)+']'
             self.j.append(Junction(name=jname, Eg=Eg, TC=TC, \
                 n=n, J0ratio = J0ratio, Jext=Jext, area=area))
+
+        self.j[0].update(beta=0.)
                        
         self.update_now = True
 
 
     def copy(self):
         '''
-        create a separate complete copy of a junction
+        create a copy of a Multi2T
+        need deepcopy() to separate lists, dicts, etc but crashes
         '''
-        return copy.deepcopy(self)
+        
+        return copy.copy(self)
 
     def copy3T(dev3T):
         '''
@@ -63,7 +67,20 @@ class Multi2T(object):
         dev2T.j[1].Rser = 0.
         
         return dev2T  
+
+    def single(junc,copy=True):
+        '''
+        create a 2T single junction cell from a Junction object
+        from this you can calculate Voc, Jsc, MPP, plot, etc.
+        '''
+        dev2T = Multi2T(name=junc.name, TC=junc.TC, Eg_list=[junc.Eg])
+        if copy:
+            dev2T.j[0] = junc.copy()
+        else:
+            dev2T.j[0] = junc
             
+        return dev2T
+                       
     def __str__(self):
         '''
         format concise description of Multi2T object
@@ -82,8 +99,11 @@ class Multi2T(object):
     def __repr__(self):
         return str(self)
     
-    #def __setattr__(self, key, value):
-        #super(Multi2T, self).__setattr__(key, value)
+    @property
+    def TC(self):
+        # largest junction TC
+        TCs = self.proplist('TC')
+        return max(TCs)
 
     @property
     def lightarea(self):
@@ -107,7 +127,7 @@ class Multi2T(object):
                 self.__dict__[key] = np.array(value)
             elif key in ['j', 'update_now']: 
                 self.__dict__[key] = value
-            elif key in ['Rser', 'TC']:
+            elif key in ['Rser']:
                 self.__dict__[key] = np.float64(value)
             
             if self.update_now:
@@ -148,7 +168,7 @@ class Multi2T(object):
         V = np.float64(V)
 
         #find max photocurrent at Voc
-        Voc = self.Voc
+        Voc = self.Voc()  # this also calculates JLC at Voc
         Jphotos = self.proplist('Jphoto')
         areas = self.proplist('lightarea')
         Imax = max([j*a for j,a in zip(Jphotos,areas)])            
@@ -196,31 +216,30 @@ class Multi2T(object):
             
         return out
                     
-    @property 
     def Voc(self):
         return self.V2T(0.)
 
-    @property
     def Isc(self):
         return abs(self.I2T(0.))
        
-    
     def MPP(self, pnts=11, bplot=False):
         # calculate maximum power point and associated IV, Vmp, Imp, FF     
         #res=0.001   #voltage resolution
  
         ts = time()
-        Ilo = -self.Isc
+        Voc = self.Voc()
+        Isc = self.Isc()
+        Ilo = -Isc
         Ihi = 0.    #1mA forward
         #ndarray functions
         V2Tvect = np.vectorize(self.V2T)
       
         Jext_list = self.proplist('Jext')  #list external photocurrents at Voc
         if math.isclose(max(Jext_list), 0., abs_tol=1e-6) :
-             self.Pmp = np.nan
-             self.Vmp = np.nan
-             self.Imp = np.nan
-             self.FF = np.nan
+             Pmp = np.nan
+             Vmp = np.nan
+             Imp = np.nan
+             FF = np.nan
 
         else:
             if bplot: # debug plot
@@ -247,20 +266,20 @@ class Multi2T(object):
                 Ihi = Itemp[min((nmax+1),(pnts-1))]
  
                 
-            self.Pmp = Ptemp[nmax]
-            self.Vmp = Vtemp[nmax]
-            self.Imp = abs(Itemp[nmax])
-            self.FF = abs((self.Vmp * self.Imp) / (self.Voc * self.Isc))
+            Pmp = Ptemp[nmax]
+            Vmp = Vtemp[nmax]
+            Imp = abs(Itemp[nmax])
+            FF = abs((Vmp * Imp) / (Voc * Isc))
             
-            self.Vpoints = np.array([0., self.Vmp, self.Voc])
-            self.Ipoints = np.array([-self.Isc, -self.Imp, 0.])
+            self.Vpoints = np.array([0., Vmp, Voc])
+            self.Ipoints = np.array([-Isc, -Imp, 0.])
             if bplot: 
                 ax.plot(self.Vpoints,self.Ipoints,\
                 marker='x',ls='', ms=12, c='black')  #special points
-                axr.plot(self.Vmp, self.Pmp, marker='o', fillstyle='none', ms=12, c='black')
+                axr.plot(Vmp, Pmp, marker='o', fillstyle='none', ms=12, c='black')
         
-        mpp_dict = {"Voc":self.Voc, "Isc":self.Isc, "Vmp":self.Vmp, \
-                    "Imp":self.Imp, "Pmp":self.Pmp,  "FF":self.FF}
+        mpp_dict = {"Voc":Voc, "Isc":Isc, "Vmp":Vmp, \
+                    "Imp":Imp, "Pmp":Pmp,  "FF":FF}
 
         te = time()
         ds=(te-ts)
@@ -268,6 +287,30 @@ class Multi2T(object):
         
         return mpp_dict
                
+    def controls(self):
+        '''
+        use interactive_output for GUI in IPython
+        '''
+        tand_layout = widgets.Layout(width= '200px')
+        in_name = widgets.Text(value=self.name,description='name', layout=tand_layout)                        
+        in_Rser = widgets.BoundedFloatText(value=self.Rser, min=0., step=0.1,
+            description='Rser (Ωcm2)',layout=tand_layout)
+        tand_dict = {'name': in_name, 'Rser': in_Rser}
+ 
+        tandout = widgets.interactive_output(self.update, tand_dict)       
+        tand_ui = widgets.HBox([in_name, in_Rser])
+        
+        junc_layout = widgets.Layout(display='flex',
+                    flex_flow='row',
+                    justify_content='space-around')
+                    
+        jui = []
+        for i in range(self.njunc) :           
+            jui.append(self.j[i].controls())
+            
+        junc_ui = widgets.HBox(jui, layout=junc_layout) 
+        ui = widgets.VBox([tand_ui, junc_ui]) 
+        return ui
                                             
     def plot(self,title='', Vmin= -0.5, pnts=21, pplot=False):
         #plot a light IV of Multi2T
@@ -290,9 +333,10 @@ class Multi2T(object):
         # calc light IV
         if not math.isclose(Imax, 0., abs_tol=1e-6) :
            
-            self.MPP()   #determine max power point
+            MPP = self.MPP()   # calculate all just once
+            Voc = MPP['Voc']
             #horizonal portion
-            VxV = np.linspace(Vmin, self.Voc, pnts)
+            VxV = np.linspace(Vmin, Voc, pnts)
             IxV = I2Tvect(VxV)
             #vertical portion
             IxI = np.linspace(-Imax, Imax*2, pnts)
@@ -346,7 +390,7 @@ class Multi2T(object):
             laxr = lax.twinx()
             laxr.plot(Vlight, Plight*scale,ls='--',c='cyan',zorder=0)
             laxr.set_ylabel('Power (mW)',c='cyan')
-        lax.set_xlim( (Vmin-0.1), min(Egmax,self.Voc*1.1))
+        lax.set_xlim( (Vmin-0.1), min(Egmax,Voc*1.1))
         lax.set_ylim(-Imax*1.5*scale,Imax*1.5*scale)
         lax.set_title(title + ' Dark')  # Add a title to the axes.
         lax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
@@ -359,7 +403,7 @@ class Multi2T(object):
         snote += '\nEg = '+str(Eg_list) + ' eV'
         snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
         snote += '\nVoc = {0:.2f} V, Isc = {1:.1f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
-            .format(self.Voc, self.Isc*1000, self.FF*100, self.Pmp*1000)
+            .format(Voc, MPP['Isc']*1000, MPP['FF']*100, MPP['Pmp']*1000)
             
         lax.text(Vmin+0.1,Imax/2,snote,zorder=5,bbox=dict(facecolor='white'))
             
@@ -367,6 +411,6 @@ class Multi2T(object):
         ds=(te-ts)
         print(f' {ds:2.4f} s')
 
-        return dfig, lfig, dax, lax
+        return dfig, lfig, dax, lax, Vlight, Ilight
         
  
