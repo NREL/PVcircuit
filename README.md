@@ -10,7 +10,7 @@ Based on publications:
 ### Junction( ) Class
 A single *Junction* that can be combined together to form tandem and multijunction solar cells.
 
-![Junction Schematic](https://github.nrel.gov/jgeisz/PVcircuit/blob/master/images/junction%20equations.png) 
+![Junction Schematic](https://github.com/NREL/PVcircuit/blob/master/images/junction%20equations.png) 
 
 The *Junction* is modeled by an arbitrary number of parallel diodes such as n=1, n=2, n=2/3, or any other ideality factor.
 The temperature dependance of each diode saturation current J0n is determined relative to the Jdb(Eg,T). 
@@ -18,18 +18,18 @@ The temperature dependance of each diode saturation current J0n is determined re
 ### Multi2T( ) Class
 Two terminal multijunction device composed of any number of series connected *Junctions*. The sum of all Rser is an attribute of the *Multi2T* object and the Rser attributes of each sub *Junction* are ignored
 
-![2T Multijunction Schematic](https://github.nrel.gov/jgeisz/PVcircuit/blob/master/images/MultijunctionSchematic.png)
+![2T Multijunction Schematic](https://github.com/NREL/PVcircuit/blob/master/images/MultijunctionSchematic.png)
 
 ### Tandem3T( ) Class
 Three terminal (3T) tandem composed of two *Junctions*.
 Four terminal (4T) tandems can be modeled as 3T tandems with no resistive coupling (Rz=0) but still require luminescent coupling. The 4T shunt (or breakdown) between the subcells is not treated but could become important for large voltage differences.
 
-![3T and 4T Tandem Schematic](https://github.nrel.gov/jgeisz/PVcircuit/blob/master/images/TandemsSchematic.png)
+![3T and 4T Tandem Schematic](https://github.com/NREL/PVcircuit/blob/master/images/TandemsSchematic.png)
 
 ### IV3T( ) Class
 Structure to contain all the information about the operational state of a 3T tandem.
 
-![3T Measurement Equipment](https://github.nrel.gov/jgeisz/PVcircuit/blob/master/images/3Tmeasurementequipment.png)
+![3T Measurement Equipment](https://github.com/NREL/PVcircuit/blob/master/images/3Tmeasurementequipment.png)
 
 Device parameters calculated for a 'Tandem3T' object.
 
