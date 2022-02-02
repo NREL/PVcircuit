@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 # Setting up
 setup(
         name="PVcircuit", 
-        version='0.0.1',
+        version='0.0.2',
         author="John Geisz",
         author_email="<john.geiz@NREL.gov>",
         description='Multijunction PV circuit model',

@@ -18,6 +18,7 @@ from IPython.display import display
 # constants
 k_q = con.k/con.e
 DB_PREFIX = 2. * np.pi * con.e * (con.k/con.h)**3 / (con.c)**2 /1.e4    #about 1.0133e-8 for Jdb[A/cm2]
+nan=np.nan
 
 # Junction defaults
 Eg_DEFAULT=1.1    #[eV]
@@ -422,7 +423,7 @@ class Junction(object):
             description='pn',layout=cell_layout)
             
         #linkages
-        arealink = widgets.dlink((in_lightarea,'value'), (in_totalarea,'min'))
+        arealink = widgets.dlink((in_lightarea,'value'), (in_totalarea,'min')) #also jsdlink works
             
         attr = ['name']+self.ATTR.copy()
         cntrls = [in_name, in_Eg,in_TC,in_Gsh,in_Rser,in_lightarea,in_totalarea,
@@ -499,21 +500,3 @@ class Junction(object):
         ui = widgets.VBox([in_tit] + cntrls,layout=box_layout)
         
         return ui
-
-
-    def ioutupdate(self,change):
-        #self.iout.clear_output()       
-        with self.iout:
-            # put something calculated into the output
-            print(change)
-            '''
-            print(self)
-            mpp_dict=self.MPP
-            print('Voc = {0:.3f} V\
-                \nJsc = {1:.2f} mA/cm2\
-                \nFF = {2:.2f}%'.format( \
-                mpp_dict['Voc'], \
-                mpp_dict['Jsc']*1000, \
-                mpp_dict['FF']*100 ))
-            '''
-            

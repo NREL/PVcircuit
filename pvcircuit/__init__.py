@@ -34,7 +34,7 @@ IV3T = iv3T.IV3T
 Tandem3T = tandem3T.Tandem3T
 
 #
-VERSION = 0.01
+VERSION = 0.02
 
 
 

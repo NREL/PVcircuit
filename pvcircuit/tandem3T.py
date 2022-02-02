@@ -121,8 +121,9 @@ class Tandem3T(object):
         err = iv3T.init(inlist,outlist)    # initialize output
         if err: return err
 
-        i = 0
-        for index in np.ndindex(iv3T.shape):
+        #i = 0
+        #for index in np.ndindex(iv3T.shape):
+        for i, index in enumerate(np.ndindex(iv3T.shape)):
         #for Ito, Iro, Izo in zip(iv3T.Ito.flat, iv3T.Iro.flat, iv3T.Izo.flat):
             # loop through points
             
@@ -136,7 +137,7 @@ class Tandem3T(object):
                 iv3T.Vzt[i] = np.nan
                 iv3T.Vrz[i] = np.nan
                 iv3T.Vtr[i] = np.nan
-                i += 1
+                #i += 1
                 continue
            
             #input current densities
@@ -180,7 +181,7 @@ class Tandem3T(object):
             iv3T.Vzt.flat[i] = Vz - Vt  
             iv3T.Vrz.flat[i] = Vr - Vz
             iv3T.Vtr.flat[i] = Vt - Vr
-            i += 1
+            #i += 1
          
         iv3T.Pcalc()    #dev2load defaults
         
@@ -201,8 +202,12 @@ class Tandem3T(object):
         err = iv3T.init(inlist,outlist)   # initialize output
         if err: return err
 
-        i = 0
-        for index in np.ndindex(iv3T.shape):
+        if top.notdiode() and top.Rser == 0: return 1
+        if bot.notdiode() and bot.Rser == 0: return 1
+
+        #i = 0
+        #for index in np.ndindex(iv3T.shape):
+        for i, index in enumerate(np.ndindex(iv3T.shape)):
         #for Vz, Vr, Vt in zip(iv3T.Vzt.flat, iv3T.Vrz.flat, iv3T.Vtr.flat):
             # loop through points
             # ABSOLUTE (Vz,Vr,Vt) mapped <- iv3T.(Vzt,Vrz,Vtr)
@@ -266,7 +271,7 @@ class Tandem3T(object):
             iv3T.Iro.flat[i] = Jr
             iv3T.Izo.flat[i] = Jz
             iv3T.Ito.flat[i] = Jt
-            i += 1
+            #i += 1
                 
         return 0
     
@@ -320,8 +325,9 @@ class Tandem3T(object):
         Rt = top.Rser
         Rr = bot.Rser
 
-        i = 0
-        for index in np.ndindex(iv3T.shape):
+        #i = 0
+        #for index in np.ndindex(iv3T.shape):
+        for i, index in enumerate(np.ndindex(iv3T.shape)):
         #for Vzt, Vrz in zip(iv3T.Vzt.flat, iv3T.Vrz.flat):
             # loop through points  
             
@@ -371,7 +377,7 @@ class Tandem3T(object):
           
             if dIlo * dIhi > 0.:
                 #print('I3Trel not bracket', i, count, Vlo, Vhi, dIlo, dIhi)
-                i += 1
+                #i += 1
                 continue
                 
             if Rz > 0.:      
@@ -394,7 +400,7 @@ class Tandem3T(object):
             iv3T.Iro.flat[i] = Jro * bot.totalarea
             iv3T.Izo.flat[i] = Jzo * self.totalarea
             iv3T.Ito.flat[i] = Jto * top.totalarea
-            i += 1
+            #i += 1
             
         iv3T.kirchhoff(['Vzt', 'Vrz'])   # Vtr not used so make sure consistent
         iv3T.kirchhoff(iv3T.Idevlist.copy())   # check for bad results
@@ -713,28 +719,22 @@ class Tandem3T(object):
         
     def plot(self, pnts=31, meastype='CZ', oper = 'load2dev', cmap='terrain'):
         '''
-        plots characterizing the Tandem3T devices 'self'
+        calculate and plot Tandem3T devices 'self'
         '''
-        #oper = oper.lower()
         
         #bounding points
         factor = 1.2
-        cmap = plt.cm.get_cmap(cmap)  # start with existing cmap
-        cmap.set_under(color='white')  # white for Ptot < 0 and nan
         sp = self.specialpoints(meastype)
-        colors = ['white','lightgreen','lightgray','pink','orange','cyan'] 
+        colors = ['white','lightgreen','lightgray','pink','orange',
+            'cyan','cyan','cyan','cyan','cyan'] 
         Vmax = max(abs(sp.Vzt[0]), abs(sp.Vrz[0]), abs(sp.Vtr[0])) 
         Imax = max(abs(sp.Iro[1]), abs(sp.Izo[1]), abs(sp.Ito[1]))
         ii = sp.names.index('MPP')  # index of MPP from sp
-        Pmax = np.ceil(1000. * sp.Ptot[ii] / 5.) * 5.
-        levels = [ll for ll in range(0,45,5) if ll <= Pmax]  # for contours
         
                    
         iv = list()  #empty list to contain IV3T structures
         axs = list()  #empty list to contain axis of each figure
-        #fig, ax = plt.subplots(1,1)  #,gridspec_kw={'width_ratios': [5,5,1]})
-        #axs[1].set_title(meastype + '-mode ' + self.name, loc='center')               
-        #plt.tight_layout()
+        figs = list()  #empty list to contain each figure
 
         for i, VorI in enumerate(['V','I']):
             
@@ -747,41 +747,31 @@ class Tandem3T(object):
                 factor = 1.1
                 xmax = Vmax * factor
                 ymax = Vmax * factor           
-                Vfig, ax = plt.subplots(1,1)  #,gridspec_kw={'width_ratios': [5,5,1]})
-                               
             elif VorI == "I":
                 devlist = IV3T.Idevlist.copy()   #['Iro','Izo','Ito'] 
                 factor = 3.0
                 xmax = Imax * factor
                 ymax = Imax * factor
-                Ifig, ax = plt.subplots(1,1)  #,gridspec_kw={'width_ratios': [5,5,1]})
+                 
             if oper == 'load2dev':
                 xkey = VorI + 'A'
                 ykey = VorI + 'B'
-                ax.set_title(self.name + ' P-'+VorI+'-'+VorI + ' ' + meastype + '-mode ' , loc='center')
+                #ax.set_title(self.name + ' P-'+VorI+'-'+VorI + ' ' + meastype + '-mode ' , loc='center')
             elif oper == 'dev2load':
                 xkey = devlist[0]
                 ykey = devlist[1]
-                ax.set_title(self.name + ' P-'+VorI+'-'+VorI , loc='center')
+                #ax.set_title(self.name + ' P-'+VorI+'-'+VorI , loc='center')
             elif oper == 'dev2hex':
-                xkey = devlist[0]
-                ykey = devlist[1]
-                xscat = VorI + 'xhex'
-                yscat = VorI + 'yhex'
-                ax.set_title(self.name + ' P-'+VorI+'-'+VorI+'-'+VorI + ' Hexagonal', loc='center')
+                xkey = VorI + 'xhex'
+                ykey = VorI + 'yhex'
             elif oper == 'hex2dev':
                 xkey = VorI + 'xhex'
                 ykey = VorI + 'yhex'
             
-            #xmax = abs(getattr(limpnt, xkey)[0]) * factor
-            #ymax = abs(getattr(limpnt, ykey)[0]) * factor
-            axs.append(ax)
             iv.append(IV3T(name = name, meastype = meastype))  #add another IV3T class to iv list
             iv[i].box(xkey,-xmax, xmax, pnts, ykey, -ymax, ymax, pnts)
             if oper:
                 iv[i].convert(VorI, oper)
-             
-            #return iv3T
         
             if VorI == 'V':    
                 self.I3Trel(iv[i])   # calculate I(V)
@@ -789,77 +779,22 @@ class Tandem3T(object):
                 self.V3T(iv[i])   # calculate V(I)
               
             sp.append(iv[i].MPP(VorI))  #append MPP of current iv[i] to special points
-            '''colors.append('brown')
-            markers.append('^')
-            '''
             
-            # plot 2D iv3T
-            if VorI == 'I':
-                #use mA for current
-                scale = 1000.
-                xlab = iv[i].loadlabel(xkey, meastype=meastype) + ' (mA)'
-                ylab = iv[i].loadlabel(ykey, meastype=meastype) + ' (mA)'
-                step = 20
-            else:
-                scale = 1.
-                xlab = iv[i].loadlabel(xkey, meastype=meastype) + ' (V)'
-                ylab = iv[i].loadlabel(ykey, meastype=meastype) + ' (V)'
-                if Vmax < 1.:
-                    step = 0.5
-                else:
-                    step = 1.0
-                
-            x = iv[i].x * scale # 1D
-            y = iv[i].y * scale # 1D
-            z = iv[i].Ptot * 1000 # 2D
-            extent = [np.min(x), np.max(x), np.min(y), np.max(y)]
-            #subplot
-            #ax = axs[i]
-            ax.set_aspect(1)
-          
-            if oper.find('hex') < 0:
-                #cartesian grids
-                ax.set_xlabel(xlab)  # Add an x-label to the axes.
-                ax.set_ylabel(ylab)  # Add a y-label to the axes.
-                ax.axhline(0, ls= '--', color='gray')
-                ax.axvline(0, ls= '--', color='gray')
-                #image
-                imag = ax.imshow(z, vmin=0, vmax=Pmax, origin='lower', 
-                                 extent = extent, cmap=cmap)           
-                #contour            
-                cont = ax.contour(x, y, z, colors = 'black',
-                               levels = levels)
-                ax.clabel(cont, inline=True, fontsize=10)
-            else:
-                ax.set_axis_off()   # turn off confusing x-axis and y-axis
-                #add hexgrids 
-                iv[i].hexgrid(ax, VorI, step)               
-                #scatter
-                xkey = VorI + 'xhex'
-                ykey = VorI + 'yhex'
-                xx = getattr(iv[i],xkey) * scale
-                yy = getattr(iv[i],ykey) * scale
-                imag = ax.scatter(xx, yy, s=100, c=z, marker='h', cmap=cmap, \
-                    vmin=0, vmax=Pmax)
-                #contour
-                cont = ax.contour(xx, yy, z, colors = 'black',
-                               levels = levels)
-                ax.clabel(cont, inline=True, fontsize=10)
-                
-                       
-            #add points           
-            xp = getattr(sp, xkey) * scale
-            yp = getattr(sp, ykey) * scale
-            #ax.plot(xp, yp, marker='o', fillstyle='none', mew=2, ls='', ms=6, c='red')
-            ax.scatter(xp[:6], yp[:6], marker='o', s=150, c=colors, edgecolors='black', \
-                linewidths = 2, zorder=5)
-            #colorbar
-            cb = plt.colorbar(imag, ax=ax, shrink=0.8, ticks=levels)
-            cb.set_label('Power (mW)')
+            fig, ax = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap)  
+            sp.addpoints(ax, xkey, ykey, colors)    
+            axs.append(ax)
+            figs.append(fig)
+            
+            xkey = VorI + 'xhex'
+            ykey = VorI + 'yhex'
+            fig, ax = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap) 
+            sp.addpoints(ax, xkey, ykey, colors) 
+            axs.append(ax)
+            figs.append(fig)    
            
             te = time()
             dt=(te-ts)
             print('axs[{0:g}]: {1:d}pnts , {2:2.4f} s'.format(i,pnts,dt))
  
-        return Vfig, Ifig, axs, iv, sp
+        return figs, axs, iv, sp
  

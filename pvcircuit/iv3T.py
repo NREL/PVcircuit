@@ -7,6 +7,7 @@ This is the PVcircuit Package.
 import math   #simple math
 from time import time
 import numpy as np   #arrays
+import pandas as pd  #data frames
 import matplotlib.pyplot as plt   #plotting
 from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
@@ -113,7 +114,7 @@ class IV3T(object):
         sizes = self.sizes(self.arraykeys)
         nmin,nmax = sizes
         width = 9
-        prntmax = 50
+        prntmax = 10
         fmtV = '{0:^'+str(width)+'.3f}'
         fmtI = '{0:^'+str(width)+'.2f}'
         
@@ -134,18 +135,21 @@ class IV3T(object):
         strout += '\n' + str(attr_list) 
         strout += '\nsizes' + str(sizes)
         strout += '\n\n' + title
-        
+       
+        imax = 1 
         for i, index in enumerate(np.ndindex(self.shape)):
+            strline=''
             if hasattr(self,'names'):
                 if i < len(self.names) and self.names[i]:
-                    strout += '\n' + self.names[i].center(nshape)
+                    strline += '\n' + self.names[i].center(nshape)
                 else:
-                    strout += '\n' + str(index).center(nshape)
+                    strline += '\n' + str(index).center(nshape)
             else:
-                strout += '\n' + str(index).center(nshape)
+                strline += '\n' + str(index).center(nshape)
                 
             for key in self.arraykeys:
                 array = getattr(self, key)
+                imax = max(imax,array.size)
                 if i < array.size:
                     if key[:1] == 'V':
                         #sval = fmtV.format(array.flat[i])
@@ -154,10 +158,15 @@ class IV3T(object):
                         sval = fmtI.format(1000 * array[index])
                 else:
                     sval = ''.center(width)
-                strout += sval
+                strline += sval
                 
-            if i > prntmax: break
-            
+            if i < prntmax: # head
+                strout += strline
+            elif i > imax - prntmax: #tail
+                strout += strline
+            elif i == prntmax:
+                strout += '\n\n'
+           
         return strout
     
     def __repr__(self):
@@ -211,7 +220,7 @@ class IV3T(object):
         create a 2D ndarray for xkey and ykey with shape (xn, yn)
         with evenly spaced values
         '''
-        shape = (xn, yn)
+        shape = (yn, xn)
         x = np.linspace(x0, x1, xn, dtype=np.float64)
         y = np.linspace(y0, y1, yn, dtype=np.float64)
         xx, yy = np.meshgrid(x , y)
@@ -594,42 +603,182 @@ class IV3T(object):
             setattr(self,outlist[2],outarray2)
         
         return 0
-   
-    def plot(self):
+ 
+    def loadcsv(name, path, fileA, fileB, VorI, meastype, Iscale=1000.):
         '''
-        plot IV3T line or box
+        import csv file as data table into iv3T object
+        two 2D arrays with x and y index on top and left
+        load variables:
+        VA(IA,IB) & VB(IA,IB) .......... VorI='I'
+            or
+        IA(VA,VB) & IB(VA,VB) .......... VorI='V'
+        Iscale converts currnet mA -> A or mA/cm2-> A
         '''
         
+        xkey = VorI + 'A'
+        ykey = VorI + 'B'
+
+        if VorI == 'I':
+            indscale = Iscale  #mA
+            dscale = 1.
+        else:
+            indscale = 1.
+            dscale = Iscale  #mA
+       
+        # read into dataframe
+        dfA = pd.read_csv(path+fileA, index_col=0)
+        dfB = pd.read_csv(path+fileB, index_col=0)
+        
+        # y index
+        indA = np.array(dfA.index)
+        indB = np.array(dfB.index)
+        x0 = indA[0]  #first
+        x1 = indA[-1] #last
+        xn = len(indA)
+        if x0 != indB[0]: return 1
+        if x1 != indB[-1]: return 2
+        if xn != len(indB): return 3
+       
+        # x columns...convert from string labels
+        colA = np.float64(np.array(dfA.columns))
+        colB = np.float64(np.array(dfB.columns))
+        y0 = colA[0]  #first
+        y1 = colA[-1] #last
+        yn = len(colA)
+        if y0 != colB[0]: return 4
+        if y1 != colB[-1]: return 5
+        if yn != len(colB): return 6
+ 
+        # create iv3T class
+        iv3T = IV3T(name = name, meastype = meastype)
+        iv3T.box(xkey, x0/indscale, x1/indscale, xn, ykey, y0/indscale, y1/indscale, yn)
+        #print(xkey, x0/indscale, x1/indscale, xn, ykey, y0/indscale, y1/indscale, yn)
+        
+        # measured data
+        IorV = 'VI'.strip(VorI)
+        Akey = IorV + 'A'
+        Bkey = IorV + 'B'
+        
+        # assign values
+        dataA = np.array(dfA).transpose() / dscale
+        dataB = np.array(dfB).transpose() / dscale
+        #print('A',dataA.shape,Akey)
+        #print('B',dataB.shape,Bkey)
+        
+        # put into iv3T object
+        setattr(iv3T,Akey,dataA)        
+        setattr(iv3T,Bkey,dataB)  
+           
+        iv3T.Pcalc(oper='load2dev') # calc device parameters then Ptot
+               
+        return iv3T
+   
+    def plot(self, cmap='terrain', xkey = None, ykey = None, zkey = None):
+        '''
+        plot 2D IV3T object
+            zkey(xkey,ykey) 
+        as image if evenly spaced
+        or scatter if randomly spaced
+        with contours
+        '''
+        
+        # defaults
+        if xkey == None:
+            xkey = self.xkey
+        if ykey == None:
+            ykey = self.ykey
+        if zkey == None:
+            zkey = 'Ptot'
+            
+        cmap = plt.cm.get_cmap(cmap)  # start with existing cmap
+        cmap.set_under(color='white')  # white for Ptot < 0 and nan
+        
         dim=len(self.shape)
-        if dim == 2:   # box
-            x = self.x
-            y = self.y
-            z = self.Ptot*1000
-            xlab = self.xkey
-            ylab = self.ykey
-            extent = [np.min(x), np.max(x), np.min(y), np.max(y)]
-            levels = [0,5,10,15,20,25,30]
-            
-            fig, ax = plt.subplots()
-            imag = ax.imshow(z, vmin=0, vmax=25, origin='lower', 
-                             extent = extent, cmap='terrain')         
-            
-            cont = ax.contour(x, y, z, colors = 'black',
-                           levels = levels)
-            ax.clabel(cont, inline=True, fontsize=10)
-            
-            ax.axis('scaled')
-            ax.set_xlabel(xlab)  # Add an x-label to the axes.
-            ax.set_ylabel(ylab)  # Add a y-label to the axes.
+        if dim != 2: return 'err 1', dim  
+        if xkey not in self.arraykeys: return 'err 2', xkey
+        if ykey not in self.arraykeys: return 'err 3', ykey
+        
+        VorI = xkey[0]
+        if VorI == 'I':
+            unit = ' (mA)'
+            scale = 1000.
+            step = 10
+        else:
+            unit = ' (V)'
+            scale = 1.
+            step = 0.5
+        
+        z0 = zkey[0] 
+        if z0 == 'P':
+            zlab = 'Power (mW)'
+            zscale = 1000.
+            lstep = 5.
+        elif z0 == 'I':
+            zlab = zkey + ' (mA)'
+            zscale = 1000.
+            lstep = 5.
+        else:
+            zlab = zkey + ' (V)'
+            zscale = 1.
+            lstep = 0.5
+
+        x = self.x * scale # 1D
+        y = self.y * scale # 1D
+        xx = getattr(self,xkey) * scale # 2D
+        yy = getattr(self,ykey) * scale # 2D
+        zz = getattr(self,zkey) * zscale # 2D
+        extent = [np.nanmin(xx), np.nanmax(xx), np.nanmin(yy), np.nanmax(yy)]
+        Pmax = np.ceil(np.nanmax(zz) / lstep) * lstep
+        levels = [ll*lstep for ll in range(20) if ll*lstep <= Pmax]  # for contours
+        #print(Pmax,np.nanmax(zz) , lstep)    
+        fig, ax = plt.subplots()
+        ax.set_aspect(1)
+        if 'hex' in xkey:
+            # isometric hexagonal coordinates
+            ax.set_axis_off()   # turn off confusing x-axis and y-axis
+            #add hexgrids 
+            step = np.ceil(max(np.nanmax(xx)-np.nanmin(xx), np.nanmax(yy)-np.nanmin(yy))/10./step)*step
+            self.hexgrid(ax, VorI, step) 
+        else:
+            # cartisian coordinates   
+            ax.set_xlabel(self.loadlabel(xkey) + unit)  # Add an x-label to the axes.
+            ax.set_ylabel(self.loadlabel(ykey) + unit)  # Add a y-label to the axes.
             ax.axhline(0, ls= '--', color='gray')
             ax.axvline(0, ls= '--', color='gray')
-             
-        else:  # line or points
-            fig, ax = plt.subplots()
-            ax.plot(self.VA, self.IA, marker='.',c='green')  #JV curve
-            ax.plot(self.VB, self.IB, marker='.',c='red')  #JV curve
-            ax.set_title('title')  # Add a title to the axes.
-            ax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
-            ax.set_ylabel('Current Density (A/cm2)')  # Add a y-label to the axes.
-            
-        return fig
+         
+        if xkey == self.xkey and ykey == self.ykey:
+            #image if evenly spaced
+            imag = ax.imshow(zz, vmin=0, vmax=Pmax, origin='lower', 
+                             extent = extent, cmap=cmap)         
+        else:  
+            #scatter if randomly spaced
+            msize = round(4000/len(zz))   # marker size to fill in
+            imag = ax.scatter(xx, yy, s=msize, c=zz, marker='h', cmap=cmap, \
+                vmin=0, vmax=Pmax)
+ 
+        #contour
+        cont = ax.contour(xx, yy, zz, colors = 'black',
+                       levels = levels)
+        ax.clabel(cont, inline=True, fontsize=10)        
+
+         #colorbar
+        cb = plt.colorbar(imag, ax=ax, shrink=0.6, ticks=levels)
+        cb.set_label(zlab)
+           
+        return fig, ax
+        
+    def addpoints(self, ax, xkey, ykey, colors, lines=False):
+        #add points to existing axes 
+        VorI = xkey[0]
+        if VorI == 'I':
+            scale = 1000.
+        else:
+            scale = 1.
+        xp = getattr(self, xkey) * scale
+        yp = getattr(self, ykey) * scale
+        if lines:
+            ax.plot(xp, yp, lw=2, c='black')
+        else:        
+            ax.scatter(xp, yp, marker='o', s=150, c=colors[:len(xp)], edgecolors='black', \
+                linewidths = 2, zorder=5)
+      
