@@ -355,7 +355,7 @@ class Multi2T(object):
         # calc dark IV
         self.update(Jext = 0., JLC = 0.)   # turn lights off
         lolog = -8
-        hilog = 2
+        hilog = 7
         pdec = 3
         dpnts=((hilog-lolog)*pdec+1)
         Idark = np.logspace(lolog, hilog, num=dpnts)
@@ -405,7 +405,7 @@ class Multi2T(object):
         snote += '\nVoc = {0:.2f} V, Isc = {1:.1f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
             .format(Voc, MPP['Isc']*1000, MPP['FF']*100, MPP['Pmp']*1000)
             
-        lax.text(Vmin+0.1,Imax/2,snote,zorder=5,bbox=dict(facecolor='white'))
+        #lax.text(Vmin+0.1,Imax/2,snote,zorder=5,bbox=dict(facecolor='white'))
             
         te = time()
         ds=(te-ts)

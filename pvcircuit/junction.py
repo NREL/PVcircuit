@@ -45,6 +45,7 @@ class Junction(object):
     
     ATTR = ['Eg','TC','Gsh','Rser','lightarea','totalarea','Jext','JLC','beta','gamma','pn']          
     ARY_ATTR = ['n','J0ratio']
+    J0scale = 1000. # mA same as Igor, changes J0ratio because of units
 
     def __init__(self, name='junc', Eg=Eg_DEFAULT, TC=TC_REF, \
                  Gsh=0., Rser=0., area=AREA_DEFAULT, \
@@ -98,7 +99,7 @@ class Junction(object):
         strout += '\nJext = {0:.1f} , JLC = {1:.1f} mA/cm2' \
             .format( self.Jext*1000., self.JLC*1000.)
 
-        strout += '\nGsh = {0:g} S, Rser = {1:g} Ωcm2' \
+        strout += '\nGsh = {0:g} S/cm2, Rser = {1:g} Ωcm2' \
             .format(self.Gsh, self.Rser)
             
         strout += '\nlightA = {0:g} cm2, totalA = {1:g} cm2' \
@@ -200,10 +201,10 @@ class Junction(object):
         dynamically calculated J0(T)
         return np.ndarray [J0(n0), J0(n1), etc]
         '''
+        
         if (type(self.n) is np.ndarray) and (type(self.J0ratio) is np.ndarray):
             if self.n.size == self.J0ratio.size:
-                #return (self.Jdb)**(1./self.n) * self.J0ratio  # ratio in A/cm2
-                return (self.Jdb*1000.)**(1./self.n) * self.J0ratio / 1000. # mA same as Igor
+                return (self.Jdb * self.J0scale)**(1./self.n) * self.J0ratio / self.J0scale 
             else:
                 return np.nan   # different sizes
         else:
@@ -217,7 +218,7 @@ class Junction(object):
         J0ref = np.array(J0ref)
         if (type(self.n) is np.ndarray) and (type(J0ref) is np.ndarray):
             if self.n.size == J0ref.size:
-                self.J0ratio = J0ref / self.Jdb**(1./self.n)
+                self.J0ratio = self.J0scale * J0ref / (self.Jdb * self.J0scale)**(1./self.n)
                 return 0   # success
             else:
                 return 1   # different sizes
