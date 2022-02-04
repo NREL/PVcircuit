@@ -11,5 +11,10 @@ setup(
         url='https://github.nrel.gov/Tandems/PVcircuit',
         license='LICENSE.txt',
         packages=find_packages(),
-        install_requires=['numpy>=1.13.3', 'matplotlib>=2.1.0', 'scipy>=1.0.0', 'parse>=1.19.0','ipywidgets>=7.6.5'],
+        install_requires=['numpy>=1.13.3', 
+                          'matplotlib>=2.1.0', 
+                          'scipy>=1.0.0',
+                          'parse>=1.19.0',
+                          'ipywidgets>=7.6.5',
+                          'pandas>=1.0'],
 )
