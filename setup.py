@@ -14,7 +14,6 @@ setup(
         install_requires=['numpy>=1.13.3', 
                           'matplotlib>=2.1.0', 
                           'scipy>=1.0.0',
-                          'parse>=1.19.0',
                           'ipywidgets>=7.6.5',
                           'pandas>=1.0'],
 )

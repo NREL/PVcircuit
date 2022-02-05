@@ -69,7 +69,7 @@ class Tandem3T(object):
     def __repr__(self):
         return str(self)
  
-    def update(self, **kwargs):
+    def set(self, **kwargs):
         for key, value in kwargs.items():
             if key == 'name':
                 self.__dict__[key] = str(value)
@@ -287,7 +287,7 @@ class Tandem3T(object):
         Vt = Vz - Vzt
         Vr = Vrz + Vz
 
-        temp3T.update(Vzt=Vz, Vrz=Vr, Vtr=Vt)
+        temp3T.set(Vzt=Vz, Vrz=Vr, Vtr=Vt)
         
         self.J3Tabs(temp3T)   #calcuate (Jro,Jzo,Jto) from (Vz,Vr,Vt)
 
@@ -340,7 +340,7 @@ class Tandem3T(object):
             Vz = 0.
             Vt = Vz - Vzt
             Vr = Vrz + Vz
-            temp3T.update(Vzt=Vz, Vrz=Vr, Vtr=Vt)
+            temp3T.set(Vzt=Vz, Vrz=Vr, Vtr=Vt)
             self.J3Tabs(temp3T)
             
             Jro = temp3T.Iro[0]
@@ -415,7 +415,7 @@ class Tandem3T(object):
         '''
         
         temp3T = IV3T(name='Voc3', shape=1, meastype=meastype)
-        temp3T.update(Iro = 0., Izo = 0., Ito = 0.)
+        temp3T.set(Iro = 0., Izo = 0., Ito = 0.)
         self.V3T(temp3T)
         
         #return (temp3T.Vzt[0], temp3T.Vrz[0], temp3T.Vtr[0])
@@ -428,7 +428,7 @@ class Tandem3T(object):
         '''
         
         temp3T = IV3T(name='Isc3', shape=1, meastype=meastype)
-        temp3T.update(Vzt = 0., Vrz = 0., Vtr = 0.)
+        temp3T.set(Vzt = 0., Vrz = 0., Vtr = 0.)
         self.I3Trel(temp3T)
         
         #return (temp3T.Iro[0], temp3T.Izo[0], temp3T.Ito[0])
@@ -545,7 +545,7 @@ class Tandem3T(object):
             pt.Vzt[0] = 0.
             #top
             tmptop = self.top.copy()  # copy for temporary calculations
-            tmptop.update(Rser = top.Rser + self.Rz / self.totalarea * top.totalarea , JLC=0.) # correct Rz by area ratio
+            tmptop.set(Rser = top.Rser + self.Rz / self.totalarea * top.totalarea , JLC=0.) # correct Rz by area ratio
             Vtmid = tmptop.Vmid(pt.Vzt[0] * top.pn) * top.pn
             pt.Ito[0] = -tmptop.Jparallel(Vtmid * top.pn, tmptop.Jphoto) * top.pn * top.totalarea 
             pt.Izo[0] = - pt.Ito[0]  # from Kirchhoff
@@ -561,7 +561,7 @@ class Tandem3T(object):
             Vtmid = tmptop.Vdiode(pt.Ito[0] / top.totalarea * top.pn) * top.pn
             #bot
             tmpbot = self.bot.copy()
-            tmpbot.update(Rser = bot.Rser + self.Rz / self.totalarea * bot.totalarea) # correct Rz by area ratio
+            tmpbot.set(Rser = bot.Rser + self.Rz / self.totalarea * bot.totalarea) # correct Rz by area ratio
             tmpbot.JLC = bot.beta * tmptop.Jem(Vtmid * top.pn)   # top to bot LC
             if top.totalarea < bot.totalarea: # distribute LC over total area
                 tmpbot.JLC *= top.totalarea / bot.totalarea
@@ -705,7 +705,7 @@ class Tandem3T(object):
             description='Rz (Ωcm2)',layout=tand_layout)
         tand_dict = {'name': in_name, 'Rz': in_Rz}
  
-        tandout = widgets.interactive_output(self.update, tand_dict)       
+        tandout = widgets.interactive_output(self.set, tand_dict)       
         tand_ui = widgets.HBox([in_name, in_Rz])
         
         junc_layout = widgets.Layout(display='flex',

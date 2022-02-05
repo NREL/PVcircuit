@@ -37,7 +37,7 @@ class Multi2T(object):
             self.j.append(Junction(name=jname, Eg=Eg, TC=TC, \
                 n=n, J0ratio = J0ratio, Jext=Jext, area=area))
 
-        self.j[0].update(beta=0.)
+        self.j[0].set(beta=0.)
                        
         self.update_now = True
 
@@ -62,7 +62,7 @@ class Multi2T(object):
         dev2T = Multi2T(name=dev3T.name, TC=dev3T.TC, Eg_list=[top.Eg, bot.Eg])
         dev2T.j[0] = dev3T.top.copy()
         dev2T.j[1] = dev3T.bot.copy()
-        dev2T.update(Rser = (top.Rser * top.totalarea + bot.Rser * bot.totalarea) / dev3T.totalarea)
+        dev2T.set(Rser = (top.Rser * top.totalarea + bot.Rser * bot.totalarea) / dev3T.totalarea)
         dev2T.j[0].Rser = 0.
         dev2T.j[1].Rser = 0.
         
@@ -117,7 +117,7 @@ class Multi2T(object):
         areas = self.proplist('totalarea')
         return max(areas)
 
-    def update(self, **kwargs):
+    def set(self, **kwargs):
          for key, value in kwargs.items():
             if key == 'name':
                 self.__dict__[key] = str(value)
@@ -297,7 +297,7 @@ class Multi2T(object):
             description='Rser (Ωcm2)',layout=tand_layout)
         tand_dict = {'name': in_name, 'Rser': in_Rser}
  
-        tandout = widgets.interactive_output(self.update, tand_dict)       
+        tandout = widgets.interactive_output(self.set, tand_dict)       
         tand_ui = widgets.HBox([in_name, in_Rser])
         
         junc_layout = widgets.Layout(display='flex',
@@ -353,7 +353,7 @@ class Multi2T(object):
             Ilight = np.array(Ilight) 
                      
         # calc dark IV
-        self.update(Jext = 0., JLC = 0.)   # turn lights off
+        self.set(Jext = 0., JLC = 0.)   # turn lights off
         lolog = -8
         hilog = 7
         pdec = 3
@@ -365,7 +365,7 @@ class Multi2T(object):
             Vdark[ii] = self.V2T(I)  # also sets self.Vmid[i]
             for junc in range(self.njunc):
                 Vdarkmid[ii,junc] = self.Vmid[junc]       
-        self.update(Jext = Jext_list, JLC = 0.)  # turn lights back on
+        self.set(Jext = Jext_list, JLC = 0.)  # turn lights back on
                 
         #dark plot
         dfig, dax = plt.subplots()

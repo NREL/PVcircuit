@@ -76,7 +76,7 @@ class Junction(object):
         else:
             self._J0init(J0ref)  # calculate self.J0ratio from J0ref at current self.TC
          
-        self.update(RBB=RBB) 
+        self.set(RBB=RBB) 
 
     def copy(self):
         '''
@@ -131,9 +131,9 @@ class Junction(object):
     def __setattr__(self, key, value):
         # causes problems
         super(Junction, self).__setattr__(key, value) 
-        self.update(key = value)
+        self.set(key = value)
     '''
-    def update(self, **kwargs):
+    def set(self, **kwargs):
         for key, value in kwargs.items():
             if key == 'RBB':
                 if value == 'JFG':
@@ -387,7 +387,7 @@ class Junction(object):
             return np.nan
             #print("Exception:",err)
       
-        return Vmid
+        return Vmid 
  
     def controls(self):
         '''
@@ -409,7 +409,7 @@ class Junction(object):
         in_JLC = widgets.BoundedFloatText(value=self.JLC, min=0., max=.080,step=0.001,
             description='JLC (A/cm2)',layout=cell_layout)
         in_Gsh = widgets.BoundedFloatText(value=self.Gsh, min=0. ,step=0.1,
-            description='Gsh (S)',layout=cell_layout)
+            description='Gsh (S/cm2)',layout=cell_layout)
         in_Rser= widgets.BoundedFloatText(value=self.Rser, min=0., step=0.1,
             description='Rser (Ωcm2)',layout=cell_layout)
         in_lightarea = widgets.BoundedFloatText(value=self.lightarea, min=1.e-6, max=1000.,step=0.1,
@@ -430,8 +430,7 @@ class Junction(object):
         cntrls = [in_name, in_Eg,in_TC,in_Gsh,in_Rser,in_lightarea,in_totalarea,
                 in_Jext,in_JLC,in_beta,in_gamma,in_pn]
         sing_dict = dict(zip(attr,cntrls))
-        singout = widgets.interactive_output(self.update, sing_dict)
-        #singout.observe(self.ioutupdate)
+        singout = widgets.interactive_output(self.set, sing_dict)
 
         def on_change(change):
             # function for changing values
@@ -449,12 +448,6 @@ class Junction(object):
                 if owner == in_totalarea:
                    #print("in_totalarea",in_lightarea.value)
                    pass
-
-        
-        # button
-        #in_but = widgets.Button(description="update",layout=cell_layout)
-        #in_but.on_click(self.ioutupdate)
-        #cntrls.append(in_but)
 
         # diode array
         in_tit = widgets.Label(value='Junction')
@@ -478,10 +471,7 @@ class Junction(object):
             #hui.append(widgets.HBox([in_n[i],in_ratio[i]])) 
             #cntrls.append(hui[i])
           
-        #print(sing_dict)
-        #print(diode_dict)            
-        diodeout = widgets.interactive_output(self.update, diode_dict)
-        #diodeout.observe(self.ioutupdate)
+        diodeout = widgets.interactive_output(self.set, diode_dict)
        
         for cntrl in cntrls:
             cntrl.observe(on_change,names='value')

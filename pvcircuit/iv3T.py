@@ -23,7 +23,7 @@ M_isoC = np.transpose(np.array([[SQ3,1,SQ2],[0,2,-SQ2],[-SQ3,1,SQ2]]))	#two rota
 M_isoC /= SQ6
 M_isoB = np.transpose(np.array([[1,0,0],[0,0,0],[0,-1,0]]))	#two rotations
 dev2hex = M_isoB @ M_isoC	#octant viewpoint
-hex2dev = dev2hex
+hex2dev = dev2hex  #wrong but placeholder
 #hex2dev = np.linalg.inv(dev2hex)   #inverse of M_isometric....singular
 CR_Vload2dev = np.transpose(np.array([[1,-1,0],[-1,0,1],[0,0,0]]))
 CR_Iload2dev = np.transpose(np.array([[-1,1,0],[-1,0,1],[0,0,0]]))
@@ -37,8 +37,8 @@ CZ_Vload2dev = np.transpose(np.array([[0,1,-1],[-1,0,1],[0,0,0]]))
 CZ_Iload2dev = np.transpose(np.array([[1,-1,0],[0,-1,1],[0,0,0]]))
 CZ_Vdev2load = np.transpose(np.array([[0,-1,0],[1,0,0],[0,0,0]]))
 CZ_Idev2load = np.transpose(np.array([[1,0,0],[0,0,0],[0,1,0]]))
-meas_dict = {'CZ':{'VA':'Vrz', 'VB':'-Vzt', 'IA':'Izo', 'IB':'Ito'}, \
-    'CR':{'VA':'-Vrz', 'VB':'Vtr', 'IA':'Iro', 'IB':'Ito'}, \
+meas_dict = {'CZ':{'VA':'Vrz', 'VB':'-Vzt', 'IA':'Iro', 'IB':'Ito'}, \
+    'CR':{'VA':'-Vrz', 'VB':'Vtr', 'IA':'Izo', 'IB':'Ito'}, \
     'CT':{'VA':'-Vtr', 'VB':'Vzt', 'IA':'Iro', 'IB':'Izo'}, \
     'CF':{'VA':'-Vfr', 'VB':'Vzf', 'IA':'Iro', 'IB':'Izo'}}
 
@@ -172,9 +172,9 @@ class IV3T(object):
     def __repr__(self):
         return str(self)
 
-    def update(self, **kwargs):
+    def set(self, **kwargs):
         """
-        Update variables
+        set variables
         """
         for key, value in kwargs.items():
             if key in set(self.arraykeys):   #this should be numpy.ndarray
