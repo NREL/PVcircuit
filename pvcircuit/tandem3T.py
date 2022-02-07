@@ -780,15 +780,15 @@ class Tandem3T(object):
               
             sp.append(iv[i].MPP(VorI))  #append MPP of current iv[i] to special points
             
-            fig, ax = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap)  
-            sp.addpoints(ax, xkey, ykey, colors)    
+            fig, ax, objs = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap)  
+            sp.addpoints(ax, colors, xkey=xkey, ykey=ykey) 
             axs.append(ax)
             figs.append(fig)
             
             xkey = VorI + 'xhex'
             ykey = VorI + 'yhex'
-            fig, ax = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap) 
-            sp.addpoints(ax, xkey, ykey, colors) 
+            fig, ax, objs = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap) 
+            sp.addpoints(ax, colors, xkey=xkey, ykey=ykey) 
             axs.append(ax)
             figs.append(fig)    
            

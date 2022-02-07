@@ -7,6 +7,7 @@ This is the PVcircuit Package.
 import math   #simple math
 import copy
 from time import time
+from functools import lru_cache
 import numpy as np   #arrays
 import matplotlib.pyplot as plt   #plotting
 from scipy.optimize import brentq    #root finder
@@ -33,6 +34,7 @@ VTOL= 0.0001
 EPSREL=1e-15
 MAXITER=1000
 
+@lru_cache(maxsize = 100)
 def TK(TC): return TC + con.zero_Celsius
     #convert degrees celcius to kelvin
          

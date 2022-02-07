@@ -9,6 +9,7 @@ from time import time
 import numpy as np   #arrays
 import pandas as pd  #data frames
 import matplotlib.pyplot as plt   #plotting
+import matplotlib as mpl
 from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
 import scipy.constants as con   #physical constants
@@ -673,7 +674,8 @@ class IV3T(object):
                
         return iv3T
    
-    def plot(self, cmap='terrain', xkey = None, ykey = None, zkey = None):
+    def plot(self, xkey = None, ykey = None, zkey = None,
+                inplot = None, cmap='terrain', ccont = 'black', bar = True):
         '''
         plot 2D IV3T object
             zkey(xkey,ykey) 
@@ -690,8 +692,6 @@ class IV3T(object):
         if zkey == None:
             zkey = 'Ptot'
             
-        cmap = plt.cm.get_cmap(cmap)  # start with existing cmap
-        cmap.set_under(color='white')  # white for Ptot < 0 and nan
         
         dim=len(self.shape)
         if dim != 2: return 'err 1', dim  
@@ -730,44 +730,75 @@ class IV3T(object):
         extent = [np.nanmin(xx), np.nanmax(xx), np.nanmin(yy), np.nanmax(yy)]
         Pmax = np.ceil(np.nanmax(zz) / lstep) * lstep
         levels = [ll*lstep for ll in range(20) if ll*lstep <= Pmax]  # for contours
-        #print(Pmax,np.nanmax(zz) , lstep)    
-        fig, ax = plt.subplots()
-        ax.set_aspect(1)
-        if 'hex' in xkey:
-            # isometric hexagonal coordinates
-            ax.set_axis_off()   # turn off confusing x-axis and y-axis
-            #add hexgrids 
-            step = np.ceil(max(np.nanmax(xx)-np.nanmin(xx), np.nanmax(yy)-np.nanmin(yy))/10./step)*step
-            self.hexgrid(ax, VorI, step) 
-        else:
-            # cartisian coordinates   
-            ax.set_xlabel(self.loadlabel(xkey) + unit)  # Add an x-label to the axes.
-            ax.set_ylabel(self.loadlabel(ykey) + unit)  # Add a y-label to the axes.
-            ax.axhline(0, ls= '--', color='gray')
-            ax.axvline(0, ls= '--', color='gray')
-         
-        if xkey == self.xkey and ykey == self.ykey:
-            #image if evenly spaced
-            imag = ax.imshow(zz, vmin=0, vmax=Pmax, origin='lower', 
-                             extent = extent, cmap=cmap)         
-        else:  
-            #scatter if randomly spaced
-            msize = round(4000/len(zz))   # marker size to fill in
-            imag = ax.scatter(xx, yy, s=msize, c=zz, marker='h', cmap=cmap, \
-                vmin=0, vmax=Pmax)
- 
-        #contour
-        cont = ax.contour(xx, yy, zz, colors = 'black',
-                       levels = levels)
-        ax.clabel(cont, inline=True, fontsize=10)        
-
-         #colorbar
-        cb = plt.colorbar(imag, ax=ax, shrink=0.6, ticks=levels)
-        cb.set_label(zlab)
-           
-        return fig, ax
         
-    def addpoints(self, ax, xkey, ykey, colors, lines=False):
+        #print(self.name) # tag this instance
+        if inplot:  # start with old plot
+            fig, ax, objs = inplot            
+            handles, labels = ax.get_legend_handles_labels()  # legend items to be added       
+            oldlegend = ax.get_legend()
+            if type(oldlegend) is mpl.legend.Legend:
+                texts = oldlegend.get_texts()
+                lines = oldlegend.get_lines()  
+                for text, line in zip(texts, lines): 
+                    #print('get',line, text.get_text())
+                    handles.append(line)
+                    labels.append(text.get_text())
+        else:
+            fig, ax = plt.subplots()            
+            handles, labels = ax.get_legend_handles_labels()  # legend items to be added       
+            objs = []  # list of objects in plot for further manipulation
+            ax.set_aspect(1)
+            if 'hex' in xkey:
+                # isometric hexagonal coordinates
+                ax.set_axis_off()   # turn off confusing x-axis and y-axis
+                #add hexgrids 
+                step = np.ceil(max(np.nanmax(xx)-np.nanmin(xx), np.nanmax(yy)-np.nanmin(yy))/10./step)*step
+                self.hexgrid(ax, VorI, step) 
+            else:
+                # cartisian coordinates   
+                ax.set_xlabel(self.loadlabel(xkey) + unit)  # Add an x-label to the axes.
+                ax.set_ylabel(self.loadlabel(ykey) + unit)  # Add a y-label to the axes.
+                ax.axhline(0, ls= '--', color='gray', label='_hzero')
+                ax.axvline(0, ls= '--', color='gray', label='_vzero')
+
+
+        if cmap: #don't add image if cmap == None
+            cmap = plt.cm.get_cmap(cmap)  # start with existing cmap
+            cmap.set_under(color='white')  # white for Ptot < 0 and nan
+            if xkey == self.xkey and ykey == self.ykey:
+                #image if evenly spaced
+                imag = ax.imshow(zz, vmin=0, vmax=Pmax, origin='lower', 
+                                 extent = extent, cmap=cmap)         
+            else:  
+                #scatter if randomly spaced
+                msize = round(4000/len(zz))   # marker size to fill in
+                imag = ax.scatter(xx, yy, s=msize, c=zz, marker='h', cmap=cmap, \
+                    vmin=0, vmax=Pmax)
+            objs.append(imag)
+
+            if bar == True:
+                #colorbar
+                cb = plt.colorbar(imag, ax=ax, shrink=0.6, ticks=levels)
+                cb.set_label(zlab)
+                objs.append(cb)
+
+        if ccont:  #don't add contour if ccont == None
+            #contour
+            cont = ax.contour(xx, yy, zz, colors = ccont,
+                           levels = levels)
+            ax.clabel(cont, inline=True, fontsize=10)  
+            objs.append(cont)
+            hands,labs = cont.legend_elements() # lists of each line in contour
+            #handles += hands
+            #labels += labs
+            handles.append(hands[0])
+            labels.append(self.name)
+            ax.legend(handles, labels, title='Contours') 
+            
+                        
+        return fig, ax, objs
+        
+    def addpoints(self, ax, colors='black', xkey='VA', ykey='VB', lines=False):
         #add points to existing axes 
         VorI = xkey[0]
         if VorI == 'I':
