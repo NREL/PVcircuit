@@ -159,6 +159,16 @@ class Multi2T(object):
             
         return np.sum(self.Vmid) + self.Rser * I / self.totalarea
     
+    def Imaxrev(self):
+        #find max rev-bias current (w/o Gsh or breakdown)
+        Voc = self.Voc()  # this also calculates JLC at Voc
+        J0s = self.proplist('J0')
+        Jphotos = self.proplist('Jphoto')
+        Jmaxs = Jphotos + np.sum(J0s,axis=1)
+        areas = self.proplist('lightarea')
+        Imax = max([j*a for j,a in zip(Jmaxs,areas)])            
+        return Imax
+        
     def I2T(self, V):
         '''
         calculate J(V) of 2T multijunction
@@ -166,13 +176,8 @@ class Multi2T(object):
         '''
 
         V = np.float64(V)
-
-        #find max photocurrent at Voc
         Voc = self.Voc()  # this also calculates JLC at Voc
-        Jphotos = self.proplist('Jphoto')
-        areas = self.proplist('lightarea')
-        Imax = max([j*a for j,a in zip(Jphotos,areas)])            
-        
+        Imax = self.Imaxrev()                 
         stepratio = 10
         count = 0
         if V <= Voc:   #Voc toward Jsc
@@ -205,16 +210,17 @@ class Multi2T(object):
     
     def proplist(self, key):
         #list of junction properties
-        out = np.array([])
+               
+        out = []    #list NOT ndarray
         for junc in self.j :
             try:
                 value = getattr(junc, key)
             except:
                 value = np.nan
                 
-            out = np.append(out, value)   
-            
-        return out
+            out.append(value)   #append scalar or array as list item
+                     
+        return np.array(out)
                     
     def Voc(self):
         return self.V2T(0.)
@@ -312,13 +318,15 @@ class Multi2T(object):
         ui = widgets.VBox([tand_ui, junc_ui]) 
         return ui
                                             
-    def plot(self,title='', Vmin= -0.5, pnts=21, pplot=False):
+    def plot(self,title='', pnts=21, pplot=False, dark=None,
+            Vmin= -0.5, lolog = -8, hilog = 7, pdec = 5):
         #plot a light IV of Multi2T
         
         ts = time()
         Jext_list = self.proplist('Jext') #remember list external photocurrents 
         areas = self.proplist('lightarea')  #list of junction areas
-        Imax = max([j*a for j,a in zip(Jext_list,areas)])            
+        #Imax = max([j*a for j,a in zip(Jext_list,areas)])  
+        Imax = self.Imaxrev()          
         Eg_list = self.proplist('Eg') #list of Eg 
         Egmax = sum(Eg_list)
         scale = 1000.
@@ -329,10 +337,15 @@ class Multi2T(object):
         
         if self.name :
             title += self.name 
-            
-        # calc light IV
-        if not math.isclose(Imax, 0., abs_tol=1e-6) :
-           
+         
+        if dark==None:    
+            if math.isclose(self.Isc(), 0., abs_tol=1e-6) :
+                dark = True   
+            else:
+                dark = False
+                
+        if not dark:    
+            # calc light IV  
             MPP = self.MPP()   # calculate all just once
             Voc = MPP['Voc']
             #horizonal portion
@@ -354,11 +367,11 @@ class Multi2T(object):
                      
         # calc dark IV
         self.set(Jext = 0., JLC = 0.)   # turn lights off
-        lolog = -8
-        hilog = 7
-        pdec = 3
         dpnts=((hilog-lolog)*pdec+1)
-        Idark = np.logspace(lolog, hilog, num=dpnts)
+        Ifor = np.logspace(hilog, lolog, num=dpnts)
+        Irev = np.logspace(lolog, np.log10(Imax*2.), num=dpnts) * (-1)
+        Idark = np.concatenate((Ifor,Irev),axis=None)
+        dpnts = Idark.size  #redefine
         Vdark = np.full(dpnts, np.nan, dtype=np.float64) # Vtotal
         Vdarkmid = np.full((dpnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
         for ii, I in enumerate(Idark):
@@ -367,50 +380,56 @@ class Multi2T(object):
                 Vdarkmid[ii,junc] = self.Vmid[junc]       
         self.set(Jext = Jext_list, JLC = 0.)  # turn lights back on
                 
-        #dark plot
-        dfig, dax = plt.subplots()
-        dax.plot(Vdark, Idark, lw=2, c='black')  #IV curve
-        for junc in range(Vdarkmid.shape[1]):  #plot Vdiode of each junction
-            dax.plot(Vdarkmid[:, junc], Idark, lw=2)
-                 
-        dax.set_yscale("log") #logscale   
-        dax.set_xlim(0, Egmax*1.1)
-        dax.grid(color='gray')
-        dax.set_title(title + ' Dark')  # Add a title to the axes.
-        dax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
-        dax.set_ylabel('Current (A)')  # Add a y-label to the axes.
+        if dark:
+            #dark plot
+            dfig, dax = plt.subplots()
+            for junc in range(Vdarkmid.shape[1]):  #plot Vdiode of each junction
+                dax.plot(Vdarkmid[:, junc], Idark, lw=2)
+                dax.plot(Vdarkmid[:, junc], -Idark, lw=2)
+  
+            dax.plot(Vdark, Idark, lw=2, c='black')  #IV curve
+            dax.plot(Vdark, -Idark, lw=2, c='black')  #IV curve
+               
+            dax.set_yscale("log") #logscale   
+            dax.set_xlim(Vmin, Egmax*1.1)
+            dax.grid(color='gray')
+            dax.set_title(title + ' Dark')  # Add a title to the axes.
+            dax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
+            dax.set_ylabel('Current (A)')  # Add a y-label to the axes.
+            te = time()
+            ds=(te-ts)
+            print(f' {ds:2.4f} s')
+            return dfig, dax, Vdark, Idark
      
-        # light plot        
-        lfig, lax = plt.subplots()
-        lax.plot(Vdark, Idark*scale, lw=2, c='green')  # dark IV curve
-        lax.plot(Vlight, Ilight*scale, lw=2, c='red')  #IV curve         
-        lax.plot(self.Vpoints,self.Ipoints*scale,\
-                marker='x',ls='', ms=12, c='black')  #special points
-        if pplot:  # power curve
-            laxr = lax.twinx()
-            laxr.plot(Vlight, Plight*scale,ls='--',c='cyan',zorder=0)
-            laxr.set_ylabel('Power (mW)',c='cyan')
-        lax.set_xlim( (Vmin-0.1), min(Egmax,Voc*1.1))
-        lax.set_ylim(-Imax*1.5*scale,Imax*1.5*scale)
-        lax.set_title(title + ' Dark')  # Add a title to the axes.
-        lax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
-        lax.set_ylabel('Current (mA)')  # Add a y-label to the axes.
-        lax.axvline(0, ls='--', c='gray')
-        lax.axhline(0, ls='--', c='gray')
+        else:
+            # light plot        
+            lfig, lax = plt.subplots()
+            lax.plot(Vdark, Idark*scale, lw=2, c='green')  # dark IV curve
+            lax.plot(Vlight, Ilight*scale, lw=2, c='red')  #IV curve         
+            lax.plot(self.Vpoints,self.Ipoints*scale,\
+                    marker='x',ls='', ms=12, c='black')  #special points
+            if pplot:  # power curve
+                laxr = lax.twinx()
+                laxr.plot(Vlight, Plight*scale,ls='--',c='cyan',zorder=0)
+                laxr.set_ylabel('Power (mW)',c='cyan')
+            lax.set_xlim( (Vmin-0.1), max(min(Egmax,Voc*1.1),0.1))
+            lax.set_ylim(-Imax*1.5*scale,Imax*1.5*scale)
+            lax.set_title(title + ' Light')  # Add a title to the axes.
+            lax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
+            lax.set_ylabel('Current (mA)')  # Add a y-label to the axes.
+            lax.axvline(0, ls='--', c='gray')
+            lax.axhline(0, ls='--', c='gray')
         
-        # annotate
-        snote = 'T = {0:.1f} C, Rser = {1:g} Ω cm2, A = {2:g} cm2'.format(self.TC, self.Rser, self.lightarea) 
-        snote += '\nEg = '+str(Eg_list) + ' eV'
-        snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
-        snote += '\nVoc = {0:.2f} V, Isc = {1:.1f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
-            .format(Voc, MPP['Isc']*1000, MPP['FF']*100, MPP['Pmp']*1000)
+            # annotate
+            snote = 'T = {0:.1f} C, Rser = {1:g} Ω cm2, A = {2:g} cm2'.format(self.TC, self.Rser, self.lightarea) 
+            snote += '\nEg = '+str(Eg_list) + ' eV'
+            snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
+            snote += '\nVoc = {0:.2f} V, Isc = {1:.1f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
+                .format(Voc, MPP['Isc']*1000, MPP['FF']*100, MPP['Pmp']*1000)
             
-        #lax.text(Vmin+0.1,Imax/2,snote,zorder=5,bbox=dict(facecolor='white'))
+            #lax.text(Vmin+0.1,Imax/2,snote,zorder=5,bbox=dict(facecolor='white'))
+            te = time()
+            ds=(te-ts)
+            print(f' {ds:2.4f} s')
+            return lfig, lax, Vlight, Ilight
             
-        te = time()
-        ds=(te-ts)
-        print(f' {ds:2.4f} s')
-
-        return dfig, lfig, dax, lax, Vlight, Ilight
-        
- 

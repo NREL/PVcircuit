@@ -45,8 +45,9 @@ class Junction(object):
     :param Rs: series resistance [ohms]
     """
     
-    ATTR = ['Eg','TC','Gsh','Rser','lightarea','totalarea','Jext','JLC','beta','gamma','pn']          
-    ARY_ATTR = ['n','J0ratio']
+    ATTR = ['Eg','TC','Gsh','Rser','lightarea','totalarea','Jext','JLC','beta','gamma','pn'
+            ,'Jphoto','TK','Jdb']          
+    ARY_ATTR = ['n','J0ratio','J0']
     J0scale = 1000. # mA same as Igor, changes J0ratio because of units
 
     def __init__(self, name='junc', Eg=Eg_DEFAULT, TC=TC_REF, \
