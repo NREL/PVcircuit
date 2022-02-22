@@ -435,7 +435,7 @@ class Junction(object):
         sing_dict = dict(zip(attr,cntrls))
         singout = widgets.interactive_output(self.set, sing_dict)
 
-        def on_change(change):
+        def on_juncchange(change):
             # function for changing values
             old = change['old'] #old value
             new = change['new'] #new value
@@ -443,14 +443,12 @@ class Junction(object):
             value = owner.value
             desc = owner.description
             
-            self.iout.clear_output()
-            with self.iout: # output device
-                print(desc, old, new)
+            iout.clear_output()
+            with iout: # output device
+                #print(desc, old, new)
                 #print(change)
                 #print(self)
-                if owner == in_totalarea:
-                   #print("in_totalarea",in_lightarea.value)
-                   pass
+                pass
 
         # diode array
         in_tit = widgets.Label(value='Junction')
@@ -477,12 +475,13 @@ class Junction(object):
         diodeout = widgets.interactive_output(self.set, diode_dict)
        
         for cntrl in cntrls:
-            cntrl.observe(on_change,names='value')
+            cntrl.observe(on_juncchange,names='value')
+            pass
 
         #output
-        self.iout = widgets.Output()
-        self.iout.layout.height = '50px'
-        cntrls.append(self.iout)
+        iout = widgets.Output()
+        iout.layout.height = '5px'
+        cntrls.append(iout)
         
         # user interface        
         box_layout = widgets.Layout(display='flex',

@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt   #plotting
 from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
 import scipy.constants as con   #physical constants
+import ipywidgets as widgets
+from IPython.display import display
 from pvcircuit.junction import *
                
 class Multi2T(object): 
@@ -165,7 +167,7 @@ class Multi2T(object):
         J0s = self.proplist('J0')
         Jphotos = self.proplist('Jphoto')
         Jmaxs = Jphotos + np.sum(J0s,axis=1)
-        areas = self.proplist('lightarea')
+        areas = self.proplist('totalarea')
         Imax = max([j*a for j,a in zip(Jmaxs,areas)])            
         return Imax
         
@@ -228,7 +230,7 @@ class Multi2T(object):
     def Isc(self):
         return abs(self.I2T(0.))
        
-    def MPP(self, pnts=11, bplot=False):
+    def MPP(self, pnts=11, bplot=False, timer=False):
         # calculate maximum power point and associated IV, Vmp, Imp, FF     
         #res=0.001   #voltage resolution
  
@@ -289,7 +291,7 @@ class Multi2T(object):
 
         te = time()
         ds=(te-ts)
-        print(f' {ds:2.4f} s')
+        if timer: print(f'MPP {ds:2.4f} s')
         
         return mpp_dict
                
@@ -297,32 +299,202 @@ class Multi2T(object):
         '''
         use interactive_output for GUI in IPython
         '''
-        tand_layout = widgets.Layout(width= '200px')
-        in_name = widgets.Text(value=self.name,description='name', layout=tand_layout)                        
+        tand_layout = widgets.Layout(width= '200px', height='40px')
+        in_name = widgets.Text(value=self.name,description='2T name', layout=tand_layout)                        
         in_Rser = widgets.BoundedFloatText(value=self.Rser, min=0., step=0.1,
             description='Rser (Ωcm2)',layout=tand_layout)
+        in_2Tbut = widgets.Button(description = 'Recalc', button_style='success', 
+            tooltip='slow calculations')
+         
         tand_dict = {'name': in_name, 'Rser': in_Rser}
- 
         tandout = widgets.interactive_output(self.set, tand_dict)       
-        tand_ui = widgets.HBox([in_name, in_Rser])
+        tand_ui = widgets.HBox([in_name, in_Rser, in_2Tbut])
         
         junc_layout = widgets.Layout(display='flex',
                     flex_flow='row',
                     justify_content='space-around')
-                    
+
+        def on_2Tchange(change):
+            # change info
+            fast=True
+            if type(change) is widgets.widgets.widget_button.Button:
+                owner=change
+                desc = owner.description  
+            else: # other controls
+                owner = change['owner'] #control                
+            desc = owner.description  
+            if desc == 'Recalc': fast = False
+              
+            #recalculate            
+            Idark, Vdark, Vdarkmid = self.calcDark()
+            Vlight, Ilight, Plight, MPP = self.calcLight(fast=fast)
+            Voc = MPP['Voc']
+            Imax = self.Imaxrev()   
+            Eg_list = self.proplist('Eg') #list of Eg 
+            Egmax = sum(Eg_list)
+            scale = 1000.
+            
+            with Lout: # left output device
+                #replot
+                dax.set_xlim(right=Egmax*1.1)
+                dax.set_ylim(np.nanmin(abs(Idark)),np.nanmax(abs(Idark))) 
+                lines = dax.get_lines()
+                for line in lines:
+                    linelabel=line.get_label()
+                    if linelabel in ['pdark','ndark']:
+                        if linelabel.startswith('p'):
+                            line.set_data(Vdark, Idark)
+                        elif linelabel.startswith('n'):
+                            line.set_data(Vdark, -Idark)
+                    elif linelabel.find('junction') >= 0: # pjunction0, njunction0, etc
+                        for junc in range(self.njunc):
+                            if linelabel.endswith('junction'+str(junc)):
+                                if linelabel.startswith('p'):
+                                    line.set_data(Vdarkmid[:, junc], Idark)
+                                elif linelabel.startswith('n'):
+                                    line.set_data(Vdarkmid[:, junc], -Idark)
+            
+            with Rout: # right output device
+                #replot
+                lax.set_xlim(right= max(min(Egmax,Voc*1.1),0.1))
+                lax.set_ylim(-Imax*1.5*scale,Imax*1.5*scale)
+                lines = lax.get_lines()
+                for line in lines:
+                    linelabel=line.get_label()
+                    if linelabel.find('dark')  >= 0:
+                        line.set_data(Vdark, Idark*scale)
+                    elif linelabel.find('light')  >= 0:
+                        line.set_data(Vlight, Ilight*scale)
+                    elif linelabel.find('points')  >= 0:
+                        line.set_data(self.Vpoints,self.Ipoints*scale)
+                if True:
+                    Jext_list = self.proplist('Jext') #remember list external photocurrents 
+                    snote = 'T = {0:.1f} C, Rser = {1:g} Ω cm2, A = {2:g} cm2'.format(self.TC, self.Rser, self.lightarea) 
+                    snote += '\nEg = '+str(Eg_list) + ' eV'
+                    snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
+                    snote += '\nVoc = {0:.3f} V, Isc = {1:.2f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
+                        .format(Voc, MPP['Isc']*1000, MPP['FF']*100, MPP['Pmp']*1000)
+                    kids = lax.get_children()
+                    for kid in kids:
+                        if kid.get_label() == 'mpptext':
+                            kid.set(text=snote)
+
+         # Left output
+        Lout = widgets.Output()
+        Lout.layout.height = '580px'
+        with Lout: # output device
+            #print(desc, old, new)
+            dfig, dax = self.plot(dark=True) 
+            
+         # Right output
+        Rout = widgets.Output()
+        Rout.layout.height = '580px'
+        with Rout: # output device
+            #print(desc, old, new)
+            lfig, lax = self.plot(dark=False) 
+            
+        iout = widgets.HBox([Lout, Rout], layout=junc_layout) 
+
         jui = []
+        # list of junction controls
         for i in range(self.njunc) :           
             jui.append(self.j[i].controls())
-            
+            kids = jui[i].children
+            for cntrl in kids:
+                #print(type(cntrl))
+                if type(cntrl) is widgets.widgets.widget_string.Label:
+                    pass  #do nothing
+                elif type(cntrl) is widgets.widgets.widget_output.Output:
+                    pass  #do nothing
+                else:
+                    cntrl.observe(on_2Tchange,names='value')
+                    pass
+
+        in_Rser.observe(on_2Tchange,names='value')
+        in_2Tbut.on_click(on_2Tchange)    
+ 
         junc_ui = widgets.HBox(jui, layout=junc_layout) 
-        ui = widgets.VBox([tand_ui, junc_ui]) 
+        ui = widgets.VBox([iout, tand_ui, junc_ui]) 
         return ui
-                                            
-    def plot(self,title='', pnts=21, pplot=False, dark=None,
+
+    def calcDark(self, hilog = 3, pdec = 5, timer=False):   
+        # calc dark IV
+        ts = time()
+        Jext_list = self.proplist('Jext') #remember list external photocurrents 
+        self.set(Jext = 0., JLC = 0.)   # turn lights off
+        Imax = self.Imaxrev()   #in dark 
+        lolog = math.floor(np.log10(Imax))-5
+        dpnts=((hilog-lolog)*pdec+1)
+        Ifor = np.logspace(hilog, lolog, num=dpnts)
+        Irev = np.logspace(lolog, np.log10(Imax*2.), num=dpnts) * (-1)
+        Idark = np.concatenate((Ifor,Irev),axis=None)
+        dpnts = Idark.size  #redefine
+        Vdark = np.full(dpnts, np.nan, dtype=np.float64) # Vtotal
+        Vdarkmid = np.full((dpnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
+        for ii, I in enumerate(Idark):
+            Vdark[ii] = self.V2T(I)  # also sets self.Vmid[i]
+            for junc in range(self.njunc):
+                Vdarkmid[ii,junc] = self.Vmid[junc]       
+        self.set(Jext = Jext_list, JLC = 0.)  # turn lights back on
+        te = time()
+        ds=(te-ts)
+        if timer: print(f'dark {ds:2.4f} s')
+    
+        return Idark, Vdark, Vdarkmid
+        
+    def calcLight(self, pnts=21, Vmin=-0.5, timer=False, fast=False):
+        # calc light IV
+        Jext_list = self.proplist('Jext') #remember list external photocurrents 
+        areas = self.proplist('lightarea')  #list of junction areas
+        #Imax = max([j*a for j,a in zip(Jext_list,areas)])  
+        Imax = self.Imaxrev()          
+        Eg_list = self.proplist('Eg') #list of Eg 
+        Egmax = sum(Eg_list)
+
+        #ndarray functions
+        V2Tvect = np.vectorize(self.V2T)
+        I2Tvect = np.vectorize(self.I2T)
+
+        MPP = self.MPP()   # calculate all just once
+        Voc = MPP['Voc']
+        
+        #vertical portion
+        ts = time()
+        IxI = np.linspace(-Imax, Imax*2, pnts)
+        VxI = V2Tvect(IxI)
+        te = time()
+        dsI=(te-ts)
+        if timer: print(f'lightI {dsI:2.4f} s')
+
+        if fast:
+            Vlight = VxI
+            Ilight = IxI
+        else:
+            #horizonal portion slow part
+            ts = time()
+            VxV = np.linspace(Vmin, Voc, pnts)
+            IxV = I2Tvect(VxV)
+            te = time()
+            dsV=(te-ts)
+            if timer: print(f'lightV {dsV:2.4f} s')
+            #combine
+            Vboth = np.concatenate((VxV,VxI),axis=None)
+            Iboth = np.concatenate((IxV,IxI),axis=None)
+            #sort
+            p = np.argsort(Vboth)
+            Vlight = Vboth[p]
+            Ilight = Iboth[p]
+        
+        Plight = np.array([(-v*j) for v, j in zip(Vlight,Ilight)])
+        Vlight = np.array(Vlight)
+        Ilight = np.array(Ilight) 
+            
+        return Vlight, Ilight, Plight, MPP
+
+    def plot(self,title='', pplot=False, dark=None, pnts=21,
             Vmin= -0.5, lolog = -8, hilog = 7, pdec = 5):
         #plot a light IV of Multi2T
         
-        ts = time()
         Jext_list = self.proplist('Jext') #remember list external photocurrents 
         areas = self.proplist('lightarea')  #list of junction areas
         #Imax = max([j*a for j,a in zip(Jext_list,areas)])  
@@ -344,92 +516,62 @@ class Multi2T(object):
             else:
                 dark = False
                 
-        if not dark:    
-            # calc light IV  
-            MPP = self.MPP()   # calculate all just once
-            Voc = MPP['Voc']
-            #horizonal portion
-            VxV = np.linspace(Vmin, Voc, pnts)
-            IxV = I2Tvect(VxV)
-            #vertical portion
-            IxI = np.linspace(-Imax, Imax*2, pnts)
-            VxI = V2Tvect(IxI)
-            #combine
-            Vboth = np.concatenate((VxV,VxI),axis=None)
-            Iboth = np.concatenate((IxV,IxI),axis=None)
-            #sort
-            p = np.argsort(Vboth)
-            Vlight = Vboth[p]
-            Ilight = Iboth[p]
-            Plight = np.array([(-v*j) for v, j in zip(Vlight,Ilight)])
-            Vlight = np.array(Vlight)
-            Ilight = np.array(Ilight) 
-                     
         # calc dark IV
-        self.set(Jext = 0., JLC = 0.)   # turn lights off
-        dpnts=((hilog-lolog)*pdec+1)
-        Ifor = np.logspace(hilog, lolog, num=dpnts)
-        Irev = np.logspace(lolog, np.log10(Imax*2.), num=dpnts) * (-1)
-        Idark = np.concatenate((Ifor,Irev),axis=None)
-        dpnts = Idark.size  #redefine
-        Vdark = np.full(dpnts, np.nan, dtype=np.float64) # Vtotal
-        Vdarkmid = np.full((dpnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
-        for ii, I in enumerate(Idark):
-            Vdark[ii] = self.V2T(I)  # also sets self.Vmid[i]
-            for junc in range(self.njunc):
-                Vdarkmid[ii,junc] = self.Vmid[junc]       
-        self.set(Jext = Jext_list, JLC = 0.)  # turn lights back on
-                
+        Idark, Vdark, Vdarkmid = self.calcDark()
+
+        if not dark:    
+            # calc light IV 
+            Vlight, Ilight, Plight, MPP = self.calcLight() 
+            Voc = MPP['Voc']
+                                     
         if dark:
             #dark plot
             dfig, dax = plt.subplots()
             for junc in range(Vdarkmid.shape[1]):  #plot Vdiode of each junction
-                dax.plot(Vdarkmid[:, junc], Idark, lw=2)
-                dax.plot(Vdarkmid[:, junc], -Idark, lw=2)
+                dax.plot(Vdarkmid[:, junc], Idark, lw=2, label='pjunction'+str(junc))
+                dax.plot(Vdarkmid[:, junc], -Idark, lw=2, label='njunction'+str(junc))
   
-            dax.plot(Vdark, Idark, lw=2, c='black')  #IV curve
-            dax.plot(Vdark, -Idark, lw=2, c='black')  #IV curve
+            dax.plot(Vdark, Idark, lw=2, c='black', label='pdark')  #IV curve
+            dax.plot(Vdark, -Idark, lw=2, c='black', label='ndark')  #IV curve
                
-            dax.set_yscale("log") #logscale   
+            dax.set_yscale("log") #logscale 
+            dax.set_autoscaley_on(True)  
             dax.set_xlim(Vmin, Egmax*1.1)
             dax.grid(color='gray')
             dax.set_title(title + ' Dark')  # Add a title to the axes.
             dax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
             dax.set_ylabel('Current (A)')  # Add a y-label to the axes.
-            te = time()
-            ds=(te-ts)
-            print(f' {ds:2.4f} s')
-            return dfig, dax, Vdark, Idark
+            #dax.legend()
+            return dfig, dax
      
         else:
             # light plot        
             lfig, lax = plt.subplots()
-            lax.plot(Vdark, Idark*scale, lw=2, c='green')  # dark IV curve
-            lax.plot(Vlight, Ilight*scale, lw=2, c='red')  #IV curve         
+            lax.plot(Vdark, Idark*scale, lw=2, c='green', label='dark')  # dark IV curve
+            lax.plot(Vlight, Ilight*scale, lw=2, c='red', label='light')  #IV curve         
             lax.plot(self.Vpoints,self.Ipoints*scale,\
-                    marker='x',ls='', ms=12, c='black')  #special points
+                    marker='x',ls='', ms=12, c='black', label='points')  #special points
             if pplot:  # power curve
                 laxr = lax.twinx()
-                laxr.plot(Vlight, Plight*scale,ls='--',c='cyan',zorder=0)
+                laxr.plot(Vlight, Plight*scale,ls='--',c='cyan',zorder=0, label='power')
                 laxr.set_ylabel('Power (mW)',c='cyan')
             lax.set_xlim( (Vmin-0.1), max(min(Egmax,Voc*1.1),0.1))
             lax.set_ylim(-Imax*1.5*scale,Imax*1.5*scale)
             lax.set_title(title + ' Light')  # Add a title to the axes.
             lax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
             lax.set_ylabel('Current (mA)')  # Add a y-label to the axes.
-            lax.axvline(0, ls='--', c='gray')
-            lax.axhline(0, ls='--', c='gray')
+            lax.axvline(0, ls='--', c='gray', label='_vline')
+            lax.axhline(0, ls='--', c='gray', label='_hline')
+            #lax.legend()
         
             # annotate
             snote = 'T = {0:.1f} C, Rser = {1:g} Ω cm2, A = {2:g} cm2'.format(self.TC, self.Rser, self.lightarea) 
             snote += '\nEg = '+str(Eg_list) + ' eV'
             snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
-            snote += '\nVoc = {0:.2f} V, Isc = {1:.1f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
+            snote += '\nVoc = {0:.3f} V, Isc = {1:.2f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
                 .format(Voc, MPP['Isc']*1000, MPP['FF']*100, MPP['Pmp']*1000)
             
             #lax.text(Vmin+0.1,Imax/2,snote,zorder=5,bbox=dict(facecolor='white'))
-            te = time()
-            ds=(te-ts)
-            print(f' {ds:2.4f} s')
-            return lfig, lax, Vlight, Ilight
-            
+            lax.text(0.05,0.95, snote, verticalalignment='top', label='mpptext',
+                        bbox=dict(facecolor='white'), transform=lax.transAxes)
+            return lfig, lax

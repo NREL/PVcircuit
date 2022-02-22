@@ -700,7 +700,7 @@ class Tandem3T(object):
         use interactive_output for GUI in IPython
         '''
         tand_layout = widgets.Layout(width= '200px')
-        in_name = widgets.Text(value=self.name,description='name', layout=tand_layout)                        
+        in_name = widgets.Text(value=self.name,description='3T name', layout=tand_layout)                        
         in_Rz = widgets.BoundedFloatText(value=self.Rz, min=0., step=0.1,
             description='Rz (Ωcm2)',layout=tand_layout)
         tand_dict = {'name': in_name, 'Rz': in_Rz}
