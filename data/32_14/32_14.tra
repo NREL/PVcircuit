@@ -1,0 +1,193 @@
+﻿[Session]
+Created:	2021-06-24 11:16:09
+Modified:	2021-06-24 11:16:49
+Opened count:	0
+Saved count:	5
+Format version:	1
+Tracie version:	1.0.7089.34121-prod-x86-release built on 30.05.2019 20:04:05 from revision b65cd9c1cd34+ 1548+ default
+This file:	D:\Loana-Messdaten\d.sylla\210624_Street22\32_14\32_14.tra
+
+[Tracie]
+Window X:	650
+Window Y:	-860
+Window W:	500
+Window H:	400
+Active tab:	IV
+File Manager shown:	False
+
+[Global]
+Spectrum:	C:\Loana\INIDAT\IQE\AM15G_IEC60904-3Ed2.spc
+Temperature:	25
+
+[BIAS]
+Active file:	
+Active view:	
+
+[BIAS files]
+
+[EQE]
+Active file:	
+Active view:	
+
+General/Min wavelength:	0
+General/Max wavelength:	0
+
+[EQE files]
+
+[REFL]
+Active file:	
+Active view:	
+
+[REFL files]
+
+[IQE]
+Active file:	
+Active view:	
+
+[IQE files]
+
+[LASS]
+Active file:	
+
+[CV]
+Active file:	
+Active view:	
+
+[CV files]
+
+[IV]
+Active file:	
+Active view:	lin
+
+Tab visible:	True
+Min V for Jo(V):	400
+Fit recipe:	D:\General_recipes\Default.IV-fit
+
+[IV files]
+1/Path:	D:\Loana-Messdaten\d.sylla\210624_Street22\32_14\IV\32_14.jv
+1/Enabled:	True
+2/Path:	D:\Loana-Messdaten\d.sylla\210624_Street22\32_14\IV\32_14.lgt
+2/Enabled:	True
+3/Path:	D:\Loana-Messdaten\d.sylla\210624_Street22\32_14\IV\32_14.drk
+3/Enabled:	True
+
+[IV two-diode model params (Jsc-Voc)]
+Model:	Low injection (Jo1, n1)
+Rsh:	539.4625244140625	[Ohm cm²]
+Rs:	0	[Ohm cm²]
+Jo1:	4.7426025238071767E-14	[A/cm²]
+n1:	1	[]
+Jo2:	6.2804099698610116E-09	[A/cm²]
+n2:	2	[]
+Jph:	36	[mA/cm²]
+X:	0	[]
+Y:	0	[]
+Ndop:	1E+15	[1/cm³]
+Vmpi:	0	[mV]
+
+[IV two-diode model params (Light)]
+Model:	Low injection (Jo1, n1)
+Rsh:	539.4625244140625	[Ohm cm²]
+Rs:	0.279	[Ohm cm²]
+Jo1:	4.7426025238071767E-14	[A/cm²]
+n1:	1	[]
+Jo2:	6.2804099698610116E-09	[A/cm²]
+n2:	2	[]
+Jph:	39.86	[mA/cm²]
+X:	0	[]
+Y:	0	[]
+Ndop:	10000000000	[1/cm³]
+Vmpi:	609.6	[mV]
+
+[IV two-diode model params (Dark)]
+Model:	Low injection (Jo1, n1)
+Rsh:	514.37384033203125	[Ohm cm²]
+Rs:	0	[Ohm cm²]
+Jo1:	1.5048777653701995E-13	[A/cm²]
+n1:	1	[]
+Jo2:	2.4907203624024987E-06	[A/cm²]
+n2:	5.4389066696166992	[]
+Jph:	36	[mA/cm²]
+X:	0	[]
+Y:	0	[]
+Ndop:	1E+15	[1/cm³]
+Vmpi:	0	[mV]
+
+[IV curve characteristics simulated (Jsc-Voc)]
+Rs:	0	[Ohm cm²]
+Isc:	142.55999386310577	[mA]
+Jsc:	35.999998450279236	[mA/cm²]
+Voc:	697.88591769433629	[mV]
+Vmp:	608.05711072911492	[mV]
+Pmax:	20.134732285676051	[mW/cm²]
+FF:	80.141772307272049	[%]
+pFF:	80.141772307272049	[%]
+eta:	20.134732285676051	[%]
+Parasitic fraction at Vmpi:	0	[mV]
+
+[IV curve characteristics simulated (Light)]
+Rs:	0.29563107695997021	[Ohm cm²]
+Isc:	158.16239265441897	[mA]
+Jsc:	39.839393615722656	[mA/cm²]
+Voc:	700.87324272023409	[mV]
+Vmp:	601.98834512028748	[mV]
+Pmax:	22.111033902669988	[mW/cm²]
+FF:	79.18753984282182	[%]
+pFF:	80.540983728882125	[%]
+eta:	22.111033902669988	[%]
+Parasitic fraction at Vmpi:	0	[mV]
+
+[IV curve characteristics simulated (Dark)]
+Rs:	0	[Ohm cm²]
+Isc:	142.55999386310577	[mA]
+Jsc:	35.999998450279236	[mA/cm²]
+Voc:	671.94980113503357	[mV]
+Vmp:	588.73867870764332	[mV]
+Pmax:	19.633593459419643	[mW/cm²]
+FF:	81.16344683056144	[%]
+pFF:	0	[%]
+eta:	19.633593459419643	[%]
+Parasitic fraction at Vmpi:	0	[mV]
+
+[Rs]
+Active file:	
+Active view:	
+
+Delta J factor:	1
+Second light intensity:	0.8
+
+[Rs files]
+1/Path:	D:\Loana-Messdaten\d.sylla\210624_Street22\32_14\IV\32_14.lgt
+1/Enabled:	True
+
+[GEN]
+Active file:	
+Active view:	
+
+[GEN files]
+
+[AUX]
+Tab IDs:	|
+
+[Chart settings]
+Tab IDs:	|IV.lin|IV.log|Rs
+
+[IV.lin chart settings]
+Xmin:	-200
+Xmax:	800
+Ymin:	-50
+Ymax:	60
+
+[IV.log chart settings]
+Xmin:	-100
+Xmax:	800
+Ymin:	0.001
+Ymax:	100
+Log scale X:	True
+
+[Rs chart settings]
+Xmin:	-200
+Xmax:	800
+Ymin:	-50
+Ymax:	60
+

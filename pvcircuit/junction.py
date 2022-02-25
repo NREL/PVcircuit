@@ -56,6 +56,10 @@ class Junction(object):
                  RBB=None, Jext=0.04, JLC=0., \
                  pn=-1, beta=BETA_DEFAUlT, gamma=0. ):
         
+        self.ui = None  
+        self.debugout = widgets.Output() # debug output
+        self.debugout.layout.height = '400px'
+
         # user inputs
         self.name = name    # remember my name
         self.Eg = np.float64(Eg)  #: [eV] junction band gap
@@ -137,15 +141,38 @@ class Junction(object):
         self.set(key = value)
     '''
     def set(self, **kwargs):
+        # controlled update of Junction attributes
+        # use key = 'called_from' to prevent recursion from functions called by controls
+
+        iout = None
+        update_control=False
+        iout = self.debugout
+        
+        if self.ui:  # junction user interface has been created
+            if 'called_from' in kwargs: 
+                update_control=False 
+                called_from=kwargs.pop('called_from')    # remove item  
+            else:
+                update_control=True         
+            cntrls = self.ui.children
+            '''
+            for cntrl in cntrls:
+                if  type(cntrl) is widgets.widgets.widget_output.Output:
+                    iout = cntrl
+                    break
+            '''
+            with iout:
+                print('Jset: ', list(kwargs.keys()))
+                        
         for key, value in kwargs.items():
             if key == 'RBB':
-                if value == 'JFG':
+                if value == 'JFG': # RBB shortcut
                     self.__dict__['RBB_dict'] =  {'method':'JFG', 'mrb':10., 'J0rb':0.5, 'Vrb':0.}
                 elif value == 'bishop':
                     self.__dict__['RBB_dict'] = {'method':'bishop','mrb':3.28, 'avalanche':1., 'Vrb':-5.5}
                 else:
                     self.__dict__['RBB_dict'] =  {'method': None}  #no RBB
-            elif key == 'area':
+            elif key == 'area': # area shortcut
                 self.__dict__['lightarea'] = np.float64(value) 
                 self.__dict__['totalarea'] = np.float64(value) 
             elif key == 'name': # strings
@@ -156,6 +183,9 @@ class Junction(object):
                 self.__dict__[key] = value
             elif key in ['n','J0ratio']: # array
                 self.__dict__[key] = np.array(value)
+            elif key in self.ATTR: # scalar float
+                self.__dict__[key] = np.float64(value)
+               
             elif key == 'n[0]':
                 self.n[0] =  np.float64(value)
             elif key == 'n[1]':
@@ -172,9 +202,34 @@ class Junction(object):
                 self.J0ratio[2] =  np.float64(value)
             elif key == 'J0ratio[3]':
                 self.J0ratio[3] =  np.float64(value)
-            else: # scalar float
-                self.__dict__[key] = np.float64(value)
+            else:
+                with iout: print('no Junckey',key)
 
+            if self.ui:
+                for cntrl in cntrls:
+                    desc = cntrl._trait_values.get('description','nodesc')  #does not fail when not present
+                    cval = cntrl._trait_values.get('value','noval')  #does not fail when not present
+                    if key == desc:
+                        if update_control: cntrl.value=value
+                        if iout:
+                            with iout:
+                                if update_control: 
+                                    print('Jupdate: ' + key, value)
+                                else:
+                                    print('Jdont update'+key) 
+                    elif key in ['n','J0ratio']: # array  
+                        keyarray = getattr(self, key)                                    
+                        for i, keyi in enumerate(keyarray):
+                            if desc == key+'['+str(i)+']':
+                                if update_control: cntrl.value=value[i]
+                                if iout:
+                                    with iout:
+                                        if update_control: 
+                                            print('Jupdate: ' + desc, value[i])
+                                        else:
+                                            print('Jdont update: '+ desc) 
+
+                
     @property
     def Jphoto(self): return self.Jext * self.lightarea / self.totalarea + self.JLC 
         # total photocurrent
@@ -402,23 +457,24 @@ class Junction(object):
                             justify_content='flex-end',
                             width='180px')  
         # controls 
-        in_name = widgets.Text(value=self.name,description='name',layout=cell_layout)                        
+        in_name = widgets.Text(value=self.name,description='name',layout=cell_layout, 
+                    continuous_update=False)                        
         in_Eg = widgets.BoundedFloatText(value=self.Eg, min=0.1,max=3.0,step=0.1,
-            description='Eg (eV)',layout=cell_layout)
+            description='Eg',layout=cell_layout)
         in_TC = widgets.BoundedFloatText(value=self.TC, min=0., max=500.,step=0.1,
-            description='T (°C)',layout=cell_layout)
+            description='TC',layout=cell_layout)
         in_Jext = widgets.BoundedFloatText(value=self.Jext, min=0., max=.080,step=0.001,
-            description='Jext (A/cm2)',layout=cell_layout)
+            description='Jext',layout=cell_layout)
         in_JLC = widgets.BoundedFloatText(value=self.JLC, min=0., max=.080,step=0.001,
-            description='JLC (A/cm2)',layout=cell_layout)
+            description='JLC',layout=cell_layout)
         in_Gsh = widgets.BoundedFloatText(value=self.Gsh, min=0. ,step=0.1,
-            description='Gsh (S/cm2)',layout=cell_layout)
+            description='Gsh',layout=cell_layout)
         in_Rser= widgets.BoundedFloatText(value=self.Rser, min=0., step=0.1,
-            description='Rser (Ωcm2)',layout=cell_layout)
+            description='Rser',layout=cell_layout)
         in_lightarea = widgets.BoundedFloatText(value=self.lightarea, min=1.e-6, max=1000.,step=0.1,
-            description='Alight (cm2)',layout=cell_layout)
+            description='lightarea',layout=cell_layout)
         in_totalarea = widgets.BoundedFloatText(value=self.totalarea, min=self.lightarea, max=1000.,step=0.1,
-            description='Atotal (cm2)',layout=cell_layout)
+            description='totalarea',layout=cell_layout)
         in_beta = widgets.BoundedFloatText(value=self.beta, min=0., max=50.,step=0.1,
             description='beta',layout=cell_layout)
         in_gamma = widgets.BoundedFloatText(value=self.gamma, min=0., max=3.0,step=0.1,
@@ -433,7 +489,7 @@ class Junction(object):
         cntrls = [in_name, in_Eg,in_TC,in_Gsh,in_Rser,in_lightarea,in_totalarea,
                 in_Jext,in_JLC,in_beta,in_gamma,in_pn]
         sing_dict = dict(zip(attr,cntrls))
-        singout = widgets.interactive_output(self.set, sing_dict)
+        #singout = widgets.interactive_output(self.set, sing_dict)  #all at once
 
         def on_juncchange(change):
             # function for changing values
@@ -441,18 +497,22 @@ class Junction(object):
             new = change['new'] #new value
             owner = change['owner'] #control
             value = owner.value
-            desc = owner.description
-            
-            iout.clear_output()
-            with iout: # output device
-                #print(desc, old, new)
-                #print(change)
-                #print(self)
-                pass
+            desc = owner.description            
+            self.set(**{'called_from':'Junction.controls', desc:value})
+              
+            if new == old:
+                with self.debugout: print('control: ' + desc + '=', value)
+            else:
+                with self.debugout: print('control: ' + desc + '->', value)
+
+            #iout.clear_output()
+            #with iout: print(self)
+
+                
 
         # diode array
-        in_tit = widgets.Label(value='Junction')
-        in_lab = widgets.Label(value='diodes:')
+        in_tit = widgets.Label(value='Junction', description='Junction')
+        in_lab = widgets.Label(value='diodes:', description='diodes:')
         diode_layout = widgets.Layout(flex_flow='column',align_items='center',width='100px')    
         
         cntrls.append(in_lab)
@@ -461,9 +521,9 @@ class Junction(object):
         hui = []
         diode_dict = {} 
         for i in range(len(self.n)):
-            in_n.append(widgets.BoundedFloatText(value=self.n[i], min=0.1, max=3.0, step=0.1,
+            in_n.append(widgets.BoundedFloatText(value=self.n[i], min=-20, max=20, step=0.1,
                 description='n['+str(i)+']',layout=cell_layout))
-            in_ratio.append(widgets.BoundedFloatText(value=self.J0ratio[i], min=0, max=10000,
+            in_ratio.append(widgets.BoundedFloatText(value=self.J0ratio[i], min=-1e6, max=1e6, step=1,
                 description='J0ratio['+str(i)+']',layout=cell_layout))
             cntrls.append(in_n[i])
             cntrls.append(in_ratio[i])
@@ -472,7 +532,7 @@ class Junction(object):
             #hui.append(widgets.HBox([in_n[i],in_ratio[i]])) 
             #cntrls.append(hui[i])
           
-        diodeout = widgets.interactive_output(self.set, diode_dict)
+        #diodeout = widgets.interactive_output(self.set, diode_dict)  #all at once
        
         for cntrl in cntrls:
             cntrl.observe(on_juncchange,names='value')
@@ -481,6 +541,7 @@ class Junction(object):
         #output
         iout = widgets.Output()
         iout.layout.height = '5px'
+        #with iout: print(self)
         cntrls.append(iout)
         
         # user interface        
@@ -491,5 +552,6 @@ class Junction(object):
                             width='300px')
                             
         ui = widgets.VBox([in_tit] + cntrls,layout=box_layout)
+        self.ui = ui    # make it an attribute
         
         return ui
