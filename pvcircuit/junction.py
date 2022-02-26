@@ -10,6 +10,7 @@ from time import time
 from functools import lru_cache
 import numpy as np   #arrays
 import matplotlib.pyplot as plt   #plotting
+from parse import *
 from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
 import scipy.constants as con   #physical constants
@@ -58,7 +59,7 @@ class Junction(object):
         
         self.ui = None  
         self.debugout = widgets.Output() # debug output
-        self.debugout.layout.height = '400px'
+        #self.debugout.layout.height = '400px'
 
         # user inputs
         self.name = name    # remember my name
@@ -140,31 +141,48 @@ class Junction(object):
         super(Junction, self).__setattr__(key, value) 
         self.set(key = value)
     '''
+    
+    def update(self):
+        # update Junction self.ui controls
+
+        if self.ui:  # junction user interface has been created
+            cntrls = self.ui.children
+            for cntrl in cntrls:
+                desc = cntrl._trait_values.get('description','nodesc')  # control description
+                cval = cntrl._trait_values.get('value','noval')  # control value
+                if desc == 'nodesc' or cval == 'noval':
+                    break
+                elif desc.endswith(']') and desc.find('[') > 0 :
+                    key, ind = parse('{}[{:d}]',desc)
+                else:
+                    key = desc
+                    ind = None
+ 
+                if key in self.ATTR:   # Junction scalar controls to update
+                    attrval = getattr(self, key)  # current value of attribute
+                    if cval != attrval:
+                        with self.debugout: print('Jupdate: ' + desc, attrval)
+                        cntrl.value = attrval
+                elif key in self.ARY_ATTR:   # Junction array controls to update
+                    attrval = getattr(self, key)  # current value of attribute
+                    if type(ind) is int:
+                        if type(attrval) is np.ndarray:
+                            if cval != attrval[ind]:
+                                with self.debugout: print('Jupdate: ' + desc, attrval[ind])
+                                cntrl.value = attrval[ind]
+                        
     def set(self, **kwargs):
         # controlled update of Junction attributes
-        # use key = 'called_from' to prevent recursion from functions called by controls
 
-        iout = None
-        update_control=False
-        iout = self.debugout
-        
-        if self.ui:  # junction user interface has been created
-            if 'called_from' in kwargs: 
-                update_control=False 
-                called_from=kwargs.pop('called_from')    # remove item  
-            else:
-                update_control=True         
-            cntrls = self.ui.children
-            '''
-            for cntrl in cntrls:
-                if  type(cntrl) is widgets.widgets.widget_output.Output:
-                    iout = cntrl
-                    break
-            '''
-            with iout:
-                print('Jset: ', list(kwargs.keys()))
+        #with self.debugout: print('Jset: ', list(kwargs.keys()))
                         
-        for key, value in kwargs.items():
+        for testkey, value in kwargs.items():
+            if testkey.endswith(']') and testkey.find('[') > 0 :
+                key, ind = parse('{}[{:d}]',testkey)   #set one element of array e.g. 'n[0]'
+            else:
+                key = testkey
+                ind = None
+
             if key == 'RBB':
                 if value == 'JFG': # RBB shortcut
                     self.__dict__['RBB_dict'] =  {'method':'JFG', 'mrb':10., 'J0rb':0.5, 'Vrb':0.}
@@ -182,53 +200,21 @@ class Junction(object):
             elif key == 'RBB_dict':
                 self.__dict__[key] = value
             elif key in ['n','J0ratio']: # array
-                self.__dict__[key] = np.array(value)
+                if type(ind) is int and np.isscalar(value) :
+                    attrval = getattr(self, key)  # current value of attribute
+                    localarray = attrval.copy()
+                    if type(localarray) is np.ndarray:
+                        if ind < localarray.size:
+                            localarray[ind] = np.float64(value) #add new value
+                            self.__dict__[key] = localarray
+                            with self.debugout: print('scalar',key, ind, localarray)
+                else:
+                    self.__dict__[key] = np.array(value)
+                    with self.debugout: print('array', key, value)
             elif key in self.ATTR: # scalar float
                 self.__dict__[key] = np.float64(value)
-               
-            elif key == 'n[0]':
-                self.n[0] =  np.float64(value)
-            elif key == 'n[1]':
-                self.n[1] =  np.float64(value)
-            elif key == 'n[2]':
-                self.n[2] =  np.float64(value)
-            elif key == 'n[3]':
-                self.n[3] =  np.float64(value)
-            elif key == 'J0ratio[0]':
-                self.J0ratio[0] =  np.float64(value)
-            elif key == 'J0ratio[1]':
-                self.J0ratio[1] =  np.float64(value)
-            elif key == 'J0ratio[2]':
-                self.J0ratio[2] =  np.float64(value)
-            elif key == 'J0ratio[3]':
-                self.J0ratio[3] =  np.float64(value)
             else:
-                with iout: print('no Junckey',key)
-
-            if self.ui:
-                for cntrl in cntrls:
-                    desc = cntrl._trait_values.get('description','nodesc')  #does not fail when not present
-                    cval = cntrl._trait_values.get('value','noval')  #does not fail when not present
-                    if key == desc:
-                        if update_control: cntrl.value=value
-                        if iout:
-                            with iout:
-                                if update_control: 
-                                    print('Jupdate: ' + key, value)
-                                else:
-                                    print('Jdont update'+key) 
-                    elif key in ['n','J0ratio']: # array  
-                        keyarray = getattr(self, key)                                    
-                        for i, keyi in enumerate(keyarray):
-                            if desc == key+'['+str(i)+']':
-                                if update_control: cntrl.value=value[i]
-                                if iout:
-                                    with iout:
-                                        if update_control: 
-                                            print('Jupdate: ' + desc, value[i])
-                                        else:
-                                            print('Jdont update: '+ desc) 
-
+                with self.debugout: print('no Junckey',key)
                 
     @property
     def Jphoto(self): return self.Jext * self.lightarea / self.totalarea + self.JLC 
@@ -498,13 +484,13 @@ class Junction(object):
             owner = change['owner'] #control
             value = owner.value
             desc = owner.description            
-            self.set(**{'called_from':'Junction.controls', desc:value})
               
             if new == old:
-                with self.debugout: print('control: ' + desc + '=', value)
+                with self.debugout: print('Jcontrol: ' + desc + '=', value)
             else:
-                with self.debugout: print('control: ' + desc + '->', value)
-
+                with self.debugout: print('Jcontrol: ' + desc + '->', value)
+                self.set(**{desc:value})
+                
             #iout.clear_output()
             #with iout: print(self)
 

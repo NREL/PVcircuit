@@ -30,7 +30,7 @@ class Multi2T(object):
         self.ui = None
        
         self.debugout = widgets.Output() # debug output
-        self.debugout.layout.height = '400px'
+        #self.debugout.layout.height = '400px'
         
         self.name = name
         self.Rs2T = Rs2T 
@@ -123,36 +123,36 @@ class Multi2T(object):
         areas = self.proplist('totalarea')
         return max(areas)
 
-    def set(self, **kwargs):
-        # controlled update of Multi2T attributes
-        # use key = 'called_from' to prevent recursion from functions called by controls
-
-        Bout = None  
-        update_control = False
-        called_from = None
-        Bout = self.debugout      
+    def update(self):
+        # update Multi2T self.ui controls
+        
+        for junc in self.j:
+            junc.update()
         
         if self.ui:  # Multi2T user interface has been created
-            if 'called_from' in kwargs: 
-                update_control=False 
-                called_from = kwargs.pop('called_from')    # remove item from dict
-            else:
-                update_control=True
             Boxes = self.ui.children
-            '''for Box in Boxes:
-                if  type(Box) is widgets.widgets.widget_output.Output:
-                    Bout = Box
-                    break
-            '''
-            if Bout:
-                with Bout:
-                    print('Mset: ', list(kwargs.keys()))
+            for cntrl in Boxes[1].children: #Multi2T controls
+                desc = cntrl._trait_values.get('description','nodesc')  #does not fail when not present
+                cval = cntrl._trait_values.get('value','noval')  #does not fail when not present
+                if desc in ['name', 'Rs2T']:   # Multi2T controls to update
+                    key = desc
+                    attrval = getattr(self, key)  # current value of attribute
+                    if cval != attrval:
+                        with self.debugout: print('Mupdate: ' + key, attrval)
+                        cntrl.value = attrval
+                if desc == 'Recalc':
+                    cntrl.click()   # click button
+
+    def set(self, **kwargs):
+        # controlled update of Multi2T attributes
+
+        with self.debugout:print('Mset: ', list(kwargs.keys()))
               
         # junction kwargs 
         jlist = Junction.ATTR.copy()+Junction.ARY_ATTR.copy()
         jkwargs = {key:kwargs.pop(key) for key in jlist if key in kwargs} 
         if len(jkwargs) > 0:
-            if called_from: jkwargs['called_from'] = called_from # pass it on to the junction.set()
+            #if called_from: jkwargs['called_from'] = called_from # pass it on to the junction.set()
             for i, junc in enumerate(self.j):
                 jikwargs = {}  # empty
                 for key, value in jkwargs.items():
@@ -161,11 +161,10 @@ class Multi2T(object):
                         jikwargs[key] = value[i]
                     else:
                         jikwargs[key] = value
-                if Bout: 
-                    with Bout: print('M2J['+str(i)+']: ', jikwargs)
+                with self.debugout: print('M2J['+str(i)+']: ', jikwargs)
                 junc.set(**jikwargs)
         
-        #remaining 2T kwargs
+        #remaining Multi2T kwargs
         for key, value in kwargs.items():
             if key == 'name':
                 self.__dict__[key] = str(value)
@@ -177,19 +176,6 @@ class Multi2T(object):
                 self.__dict__[key] = value
             elif key in ['Rs2T']:
                 self.__dict__[key] = np.float64(value)
-
-            if self.ui:
-                for cntrl in Boxes[1].children: #Multi2T controls
-                    desc = cntrl._trait_values.get('description','nodesc')  #does not fail when not present
-                    cval = cntrl._trait_values.get('value','noval')  #does not fail when not present
-                    if key == desc:
-                        if update_control: cntrl.value=value
-                        if Bout:
-                            with Bout: 
-                                if update_control: 
-                                    print('Mupdate: '+key, value)
-                                else:
-                                    print('Mdont update: '+key)
  
     def V2T(self,I):
         '''
@@ -372,12 +358,8 @@ class Multi2T(object):
             owner = change['owner'] #control
             value = owner.value
             desc = owner.description            
-            with Bout: # Bottom output device
-                if new == old:
-                    print('Mcontrol: ' + desc + '=', value)
-                else:
-                    print('Mcontrol: ' + desc + '->', value)
-            self.set(**{'called_from':'Multi2T.controls', desc:value})
+            with self.debugout: print('Mcontrol: ' + desc + '->', value)
+            self.set(**{desc:value})
 
         def on_replot(change):
             # change info
@@ -464,7 +446,7 @@ class Multi2T(object):
         ToutBox = widgets.HBox([Lout, Rout], layout=junc_layout) 
 
         # Bottom output
-        Bout = self.debugout
+        #Bout = self.debugout
         #Bout = widgets.Output()
         #Bout.layout.height = '200px'
 
@@ -496,7 +478,7 @@ class Multi2T(object):
         # calc dark IV
         ts = time()
         Jext_list = self.proplist('Jext') #remember list external photocurrents 
-        self.set(called_from = 'Multi2T.calcDark', Jext = 0., JLC = 0.)   # turn lights off but don't update controls
+        self.set(Jext = 0., JLC = 0.)   # turn lights off but don't update controls
         Imax = self.Imaxrev()   #in dark 
         lolog = math.floor(np.log10(Imax))-5
         dpnts=((hilog-lolog)*pdec+1)
@@ -510,7 +492,7 @@ class Multi2T(object):
             Vdark[ii] = self.V2T(I)  # also sets self.Vmid[i]
             for junc in range(self.njunc):
                 Vdarkmid[ii,junc] = self.Vmid[junc] 
-        self.set(called_from = 'Multi2T.calcDark', Jext = Jext_list, JLC = 0.)  # turn lights back on but don't update controls
+        self.set(Jext = Jext_list, JLC = 0.)  # turn lights back on but don't update controls
         te = time()
         ds=(te-ts)
         if timer: print(f'dark {ds:2.4f} s')
