@@ -59,7 +59,7 @@ class Junction(object):
         
         self.ui = None  
         self.debugout = widgets.Output() # debug output
-        #self.debugout.layout.height = '400px'
+        self.RBB_dict = {}
 
         # user inputs
         self.name = name    # remember my name
@@ -146,6 +146,12 @@ class Junction(object):
         # update Junction self.ui controls
 
         if self.ui:  # junction user interface has been created
+            if self.RBB_dict:
+                if self.RBB_dict['method']:
+                    RBB_keys =  list(self.RBB_dict.keys())
+                else:
+                    RBB_keys = []
+
             cntrls = self.ui.children
             for cntrl in cntrls:
                 desc = cntrl._trait_values.get('description','nodesc')  # control description
@@ -170,7 +176,12 @@ class Junction(object):
                             if cval != attrval[ind]:
                                 with self.debugout: print('Jupdate: ' + desc, attrval[ind])
                                 cntrl.value = attrval[ind]
-                        
+                elif key in RBB_keys:
+                    attrval = self.RBB_dict[key]
+                    if cval != attrval:
+                        with self.debugout: print('Jupdate: ' + desc, attrval)
+                        cntrl.value = attrval  
+                                              
     def set(self, **kwargs):
         # controlled update of Junction attributes
 
@@ -183,13 +194,25 @@ class Junction(object):
                 key = testkey
                 ind = None
 
-            if key == 'RBB':
+            if self.RBB_dict:
+                if self.RBB_dict['method']:
+                    RBB_keys =  list(self.RBB_dict.keys())
+                else:
+                    RBB_keys = []
+                
+            if key == 'RBB' or key == 'method':
+                # this change requires redrawing self.ui
                 if value == 'JFG': # RBB shortcut
                     self.__dict__['RBB_dict'] =  {'method':'JFG', 'mrb':10., 'J0rb':0.5, 'Vrb':0.}
                 elif value == 'bishop':
                     self.__dict__['RBB_dict'] = {'method':'bishop','mrb':3.28, 'avalanche':1., 'Vrb':-5.5}
                 else:
-                    self.__dict__['RBB_dict'] =  {'method': None}  #no RBB
+                    self.__dict__['RBB_dict'] =  {'method': None}  #no RBB                     
+                if self.ui:  # junction user interface has been created
+                    #ui = self.controls()    # redraw junction controls 
+                    pass                                   
+            elif key in RBB_keys: #RBB parameters
+                self.RBB_dict[key] = np.float64(value) 
             elif key == 'area': # area shortcut
                 self.__dict__['lightarea'] = np.float64(value) 
                 self.__dict__['totalarea'] = np.float64(value) 
@@ -199,7 +222,7 @@ class Junction(object):
                 self.__dict__[key] = int(value)
             elif key == 'RBB_dict':
                 self.__dict__[key] = value
-            elif key in ['n','J0ratio']: # array
+            elif key in ['n','J0ratio']: # diode parameters (array)
                 if type(ind) is int and np.isscalar(value) :
                     attrval = getattr(self, key)  # current value of attribute
                     localarray = attrval.copy()
@@ -441,35 +464,35 @@ class Junction(object):
         cell_layout = widgets.Layout(display='inline_flex',
                             flex_flow='row',
                             justify_content='flex-end',
-                            width='180px')  
+                            width='300px')  
         # controls 
         in_name = widgets.Text(value=self.name,description='name',layout=cell_layout, 
                     continuous_update=False)                        
-        in_Eg = widgets.BoundedFloatText(value=self.Eg, min=0.1,max=3.0,step=0.1,
-            description='Eg',layout=cell_layout)
-        in_TC = widgets.BoundedFloatText(value=self.TC, min=0., max=500.,step=0.1,
-            description='TC',layout=cell_layout)
-        in_Jext = widgets.BoundedFloatText(value=self.Jext, min=0., max=.080,step=0.001,
-            description='Jext',layout=cell_layout)
-        in_JLC = widgets.BoundedFloatText(value=self.JLC, min=0., max=.080,step=0.001,
-            description='JLC',layout=cell_layout)
-        in_Gsh = widgets.BoundedFloatText(value=self.Gsh, min=0. ,step=0.1,
-            description='Gsh',layout=cell_layout)
-        in_Rser= widgets.BoundedFloatText(value=self.Rser, min=0., step=0.1,
-            description='Rser',layout=cell_layout)
-        in_lightarea = widgets.BoundedFloatText(value=self.lightarea, min=1.e-6, max=1000.,step=0.1,
+        in_Eg = widgets.FloatSlider(value=self.Eg, min=0.1,max=3.0,step=0.01,
+            description='Eg',layout=cell_layout,readout_format='.2f')
+        in_TC = widgets.FloatSlider(value=self.TC, min=-40, max=200.,step=2,
+            description='TC',layout=cell_layout,readout_format='.1f')
+        in_Jext = widgets.FloatSlider(value=self.Jext, min=0., max=.080,step=0.001,
+            description='Jext',layout=cell_layout,readout_format='.4f')
+        in_JLC = widgets.FloatSlider(value=self.JLC, min=0., max=.080,step=0.001,
+            description='JLC',layout=cell_layout,readout_format='.4f',disabled=True)
+        in_Gsh = widgets.FloatLogSlider(value=self.Gsh, base=10, min=-10, max=3 ,step=0.01,
+            description='Gsh',layout=cell_layout,readout_format='.2e')
+        in_Rser= widgets.FloatLogSlider(value=self.Rser, base=10, min=-7, max=3, step=0.01,
+            description='Rser',layout=cell_layout,readout_format='.2e')           
+        in_lightarea = widgets.FloatLogSlider(value=self.lightarea, base=10, min=-6, max=3.,step=0.1,
             description='lightarea',layout=cell_layout)
-        in_totalarea = widgets.BoundedFloatText(value=self.totalarea, min=self.lightarea, max=1000.,step=0.1,
+        in_totalarea = widgets.FloatSlider(value=self.totalarea, min=self.lightarea, max=1e3, step=0.1,
             description='totalarea',layout=cell_layout)
-        in_beta = widgets.BoundedFloatText(value=self.beta, min=0., max=50.,step=0.1,
+        in_beta = widgets.FloatSlider(value=self.beta, min=0., max=50.,step=0.1,
             description='beta',layout=cell_layout)
-        in_gamma = widgets.BoundedFloatText(value=self.gamma, min=0., max=3.0,step=0.1,
-            description='gamma',layout=cell_layout)
-        in_pn = widgets.BoundedIntText(value=self.pn,min=-1,max=1,
+        in_gamma = widgets.FloatSlider(value=self.gamma, min=0., max=3.0, step=0.1,
+            description='gamma',layout=cell_layout,readout_format='.2e')
+        in_pn = widgets.IntSlider(value=self.pn, min=-1, max=1, step=1,
             description='pn',layout=cell_layout)
             
         #linkages
-        arealink = widgets.dlink((in_lightarea,'value'), (in_totalarea,'min')) #also jsdlink works
+        arealink = widgets.jslink((in_lightarea,'value'), (in_totalarea,'min')) #also jsdlink works
             
         attr = ['name']+self.ATTR.copy()
         cntrls = [in_name, in_Eg,in_TC,in_Gsh,in_Rser,in_lightarea,in_totalarea,
@@ -498,18 +521,18 @@ class Junction(object):
 
         # diode array
         in_tit = widgets.Label(value='Junction', description='Junction')
-        in_lab = widgets.Label(value='diodes:', description='diodes:')
-        diode_layout = widgets.Layout(flex_flow='column',align_items='center',width='100px')    
+        in_diodelab = widgets.Label(value='diodes:', description='diodes:')
+        diode_layout = widgets.Layout(flex_flow='column',align_items='center')    
         
-        cntrls.append(in_lab)
+        cntrls.append(in_diodelab)
         in_n = []  # empty list of n controls
         in_ratio = [] # empty list of Jratio controls
         hui = []
         diode_dict = {} 
         for i in range(len(self.n)):
-            in_n.append(widgets.BoundedFloatText(value=self.n[i], min=-20, max=20, step=0.1,
+            in_n.append(widgets.FloatLogSlider(value=self.n[i], base=10, min=-1, max=1, step=0.001,
                 description='n['+str(i)+']',layout=cell_layout))
-            in_ratio.append(widgets.BoundedFloatText(value=self.J0ratio[i], min=-1e6, max=1e6, step=1,
+            in_ratio.append(widgets.FloatLogSlider(value=self.J0ratio[i], base=10, min=-6, max=6, step=0.1,
                 description='J0ratio['+str(i)+']',layout=cell_layout))
             cntrls.append(in_n[i])
             cntrls.append(in_ratio[i])
@@ -519,7 +542,23 @@ class Junction(object):
             #cntrls.append(hui[i])
           
         #diodeout = widgets.interactive_output(self.set, diode_dict)  #all at once
-       
+  
+        if self.RBB_dict:
+            RBB_keys =  list(self.RBB_dict.keys())
+            in_rbblab = widgets.Label(value='RBB:', description='RBB:')
+            cntrls.append(in_rbblab) 
+            in_rbb = []  # empty list of n controls
+            for i, key in enumerate(RBB_keys):
+                with self.debugout: print(i,key)
+                if key == 'method':       
+                    in_rbb.append(widgets.Dropdown(options=['','JFG','bishop'],value=self.RBB_dict[key],
+                        description=key, layout=cell_layout, continuous_update=False))
+                else:
+                    in_rbb.append(widgets.FloatLogSlider(value=self.RBB_dict[key], base = 10, min=-10, max=5, step=0.1,
+                        description=key,layout=cell_layout))
+                cntrls.append(in_rbb[i])
+                    
+                         
         for cntrl in cntrls:
             cntrl.observe(on_juncchange,names='value')
             pass
@@ -535,7 +574,8 @@ class Junction(object):
                             flex_flow='column',
                             align_items='center',
                             border='1px solid black',
-                            width='300px')
+                            width='320px',
+                            height = '350px')
                             
         ui = widgets.VBox([in_tit] + cntrls,layout=box_layout)
         self.ui = ui    # make it an attribute

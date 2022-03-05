@@ -9,6 +9,7 @@ import copy
 from time import time
 import numpy as np   #arrays
 import matplotlib.pyplot as plt   #plotting
+import matplotlib as mpl   #plotting
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
@@ -32,6 +33,10 @@ class Tandem3T(object):
         
         update_now = False
         
+        self.ui = None      
+        self.debugout = widgets.Output() # debug output
+        
+        # set attributes
         self.name = name
         self.Rz = Rz
         self.top = Junction(name='top', Eg=Eg_list[0], TC=TC, \
@@ -68,8 +73,48 @@ class Tandem3T(object):
     
     def __repr__(self):
         return str(self)
- 
+
+    def update(self):
+        # update Tandem3T self.ui controls
+        
+        for junc in self.j:
+            junc.update()
+        
+        if self.ui:  # Multi2T user interface has been created
+            Boxes = self.ui.children
+            for cntrl in Boxes[1].children: #Multi2T controls
+                desc = cntrl._trait_values.get('description','nodesc')  #does not fail when not present
+                cval = cntrl._trait_values.get('value','noval')  #does not fail when not present
+                if desc in ['name', 'Rz']:   # Multi2T controls to update
+                    key = desc
+                    attrval = getattr(self, key)  # current value of attribute
+                    if cval != attrval:
+                        with self.debugout: print('Tupdate: ' + key, attrval)
+                        cntrl.value = attrval
+                if desc == 'Recalc':
+                    cntrl.click()   # click button
+
     def set(self, **kwargs):
+        # controlled update of Tandem3T attributes
+
+        with self.debugout:print('Tset: ', list(kwargs.keys()))
+              
+        # junction kwargs 
+        jlist = Junction.ATTR.copy()+Junction.ARY_ATTR.copy()
+        jkwargs = {key:kwargs.pop(key) for key in jlist if key in kwargs} 
+        if len(jkwargs) > 0:
+            for i, junc in enumerate(['top', 'bot']):
+                jikwargs = {}  # empty
+                for key, value in jkwargs.items():
+                    if key in Junction.ATTR and not np.isscalar(value): 
+                        # dimension mismatch possibly from self.proplist()
+                        jikwargs[key] = value[i]
+                    else:
+                        jikwargs[key] = value
+                with self.debugout: print('T2J['+str(i)+']: ', jikwargs)
+                junc.set(**jikwargs)
+        
+        #remaining Multi2T kwargs
         for key, value in kwargs.items():
             if key == 'name':
                 self.__dict__[key] = str(value)
@@ -81,16 +126,6 @@ class Tandem3T(object):
                 self.__dict__[key] = value
             elif key in ['Rz']:
                 self.__dict__[key] = np.float64(value)
-
-            if self.update_now:  # put appropriate values into junction attributes
-                jlist = Junction.ATTR.copy()
-                jlist.remove('Rser')
-                if key in jlist :                    
-                    for i, junc in enumerate([self.top,self.bot]):
-                        if np.isscalar(value):
-                            junc.__dict__[key] = value
-                        else:
-                            junc.__dict__[key] = value[i]
     
     @property
     def TC(self):
@@ -661,7 +696,7 @@ class Tandem3T(object):
 
         return pt
 
-    def specialpoints(self, meastype = 'CZ', bplot=False):
+    def specialpoints(self, meastype = 'CZ', bplot=False, fast=False):
         '''
         compile all the special zero power points
         and fast MPP estimate
@@ -691,39 +726,209 @@ class Tandem3T(object):
         sp.append(self.VI0('VtrIzo', meastype=meastype))
       
         # MPP
-        sp.append(self.MPP(bplot=bplot))
+        if not fast:
+            sp.append(self.MPP(bplot=bplot))
         
         return sp
         
-    def controls(self):
+    def controls(self, Vdata3T, Idata3T, hex=False, meastype='CZ'):
         '''
         use interactive_output for GUI in IPython
         '''
-        tand_layout = widgets.Layout(width= '200px')
-        in_name = widgets.Text(value=self.name,description='3T name', layout=tand_layout)                        
-        in_Rz = widgets.BoundedFloatText(value=self.Rz, min=0., step=0.1,
-            description='Rz (Ωcm2)',layout=tand_layout)
-        tand_dict = {'name': in_name, 'Rz': in_Rz}
- 
-        tandout = widgets.interactive_output(self.set, tand_dict)       
-        tand_ui = widgets.HBox([in_name, in_Rz])
-        
+        tand_layout = widgets.Layout(width= '300px', height='40px')
         junc_layout = widgets.Layout(display='flex',
                     flex_flow='row',
                     justify_content='space-around')
+        replot_types = [widgets.widgets.widget_float.BoundedFloatText, 
+                        widgets.widgets.widget_int.BoundedIntText,
+                        widgets.widgets.widget_int.IntSlider,
+                        widgets.widgets.widget_float.FloatSlider,
+                        widgets.widgets.widget_float.FloatLogSlider]
+        scale=1000.
+        pnts = 31
+        pltargs={'lw':0, 'ms':7, 'mew':1, 'mec':'black', 'mfc':'white', 'marker':'o', 'c':'red', 'label':'fitsp', 'zorder':5}
+                         
+        def on_3Tchange(change):
+            # function for changing values
+            old = change['old'] #old value
+            new = change['new'] #new value
+            owner = change['owner'] #control
+            value = owner.value
+            desc = owner.description            
+            with self.debugout: print('Tcontrol: ' + desc + '->', value)
+            self.set(**{desc:value})
+
+        def on_3Treplot(change):
+            # change info
+            fast=True
+            if type(change) is widgets.widgets.widget_button.Button:
+                owner = change
+                desc = owner.description  
+            else: # other controls
+                owner = change['owner'] #control                
+            desc = owner.description  
+            if desc == 'Recalc': fast = False
+              
+            #recalculate            
+            fitsp = self.specialpoints(meastype = meastype, fast=fast)
+            
+            with Rout: # right output device -> I
+                #replot  
+                lines = Iax.get_lines()
+                for line in lines:
+                    linelabel=line.get_label()
+                    if linelabel == 'fitsp':
+                        xp = getattr(fitsp, Iargs['xkey']) * scale 
+                        yp = getattr(fitsp, Iargs['ykey']) * scale
+                        line.set_data(xp,yp)
+                if not fast:
+                    self.V3T(Ifit3T)
+                    for i, obj in enumerate(Iobjs):
+                        if type(obj) is mpl.contour.QuadContourSet: #contours
+                            if obj.colors == 'red': #identify fit contour
+                                fitcont = Iobjs.pop(i)  #remove it
+                                for coll in fitcont.collections:
+                                    if coll in Iax.collections:
+                                        Iax.collections.remove(coll) #remove old contour lines from plot
+                                for text in fitcont.labelTexts:
+                                    if text in Iax.texts:
+                                        Iax.texts.remove(text)  #remove old contour labels from plot
+                                break
+                                    
+                    Ifit3T.plot(inplot = (Iax, Iobjs), cmap=None, ccont='red', **Iargs)  #replot fit contour
+
+            with Lout: # left output device -> V
+                #replot  
+                lines = Vax.get_lines()
+                for line in lines:
+                    linelabel=line.get_label()
+                    if linelabel == 'fitsp':
+                        xp = getattr(fitsp, Vargs['xkey']) 
+                        yp = getattr(fitsp, Vargs['ykey'])
+                        line.set_data(xp,yp)
+                if not fast:
+                    self.I3Trel(Vfit3T)    #slow
+                    for i, obj in enumerate(Vobjs):
+                        if type(obj) is mpl.contour.QuadContourSet: #contours
+                            if obj.colors == 'red': #identify fit contour
+                                fitcont = Vobjs.pop(i)  #remove it
+                                for coll in fitcont.collections:
+                                    if coll in Vax.collections:
+                                        Vax.collections.remove(coll) #remove old contour lines from plot
+                                for text in fitcont.labelTexts:
+                                    if text in Vax.texts:
+                                        Vax.texts.remove(text)  #remove old contour labels from plot
+                                break
+                                
+                    Vfit3T.plot(inplot = (Vax, Vobjs), cmap=None, ccont='red', **Vargs) #replot fit contour
+ 
+        # Tandem 3T controls
+        in_tit = widgets.Label(value='Tandem3T: ', description='title')
+        in_name = widgets.Text(value=self.name,description='name', layout=tand_layout)                        
+        in_Rz = widgets.FloatLogSlider(value=self.Rz, base=10, min=-6, max=3, step=0.01,
+            description='Rz',layout=tand_layout,readout_format='.2e')
+        in_3Tbut = widgets.Button(description = 'Recalc', button_style='success', 
+            tooltip='slow calculations')
+
+        tand_dict = {'name': in_name, 'Rz': in_Rz}
+ 
+        #tandout = widgets.interactive_output(self.set, tand_dict)       
+        tand_ui = widgets.HBox([in_tit, in_3Tbut, in_Rz, in_name])
+        
+        if Vdata3T:
+            meastype = Vdata3T.meastype
+        elif Idata3T:
+            meastype = Idata3T.meastype
+
+        fitsp = self.specialpoints(meastype = meastype)
+        Vmax = max(abs(fitsp.Vzt[0]), abs(fitsp.Vrz[0]), abs(fitsp.Vtr[0])) * 2.
+        Imax = max(abs(fitsp.Iro[1]), abs(fitsp.Izo[1]), abs(fitsp.Ito[1])) * 2.
+            
+        # Right output -> light
+        Rout = widgets.Output()
+        #Rout.layout.height = '580px'
+        with Rout: # output device
+            if Idata3T:
+                Ifit3T =  Idata3T.copy()
+                Ifit3T.set(name = self.name+'_Ifit')
+                self.V3T(Ifit3T)  #fast enough
+            else:
+                Ifit3T = IV3T(name = self.name+'_Ifit', meastype=meastype)
+                Ifit3T.box('IA',-Imax, Imax, pnts, 'IB', -Imax, Imax, pnts)
+                Ifit3T.convert('I', 'load2dev') 
+                self.V3T(Ifit3T)     
+
+            if hex:
+                Iargs = {'xkey':'Ixhex', 'ykey':'Iyhex'}
+            else:
+                Iargs = {'xkey':Ifit3T.xkey, 'ykey':Ifit3T.ykey}
+                
+            if Idata3T:
+                Iax, Iobjs = Idata3T.plot(**Iargs)    # plot data
+                Ifit3T.plot(inplot = (Iax, Iobjs), cmap=None, ccont='red', **Iargs) #append fit
+            else:
+                Iax, Iobjs = Ifit3T.plot(cmap=None, ccont='red', **Iargs)
+                
+            fitsp.addpoints(Iax, Iargs['xkey'], Iargs['ykey'], **pltargs)
+        
+        # Left output -> dark
+        Lout = widgets.Output()
+        #Lout.layout.height = '580px'
+        with Lout: # output device
+            if Vdata3T:
+                Vfit3T = Vdata3T.copy()
+                Vfit3T.set(name = self.name+'_Vfit')
+                #self.I3Trel(Vfit3T)    #too slow
+            else:
+                Vfit3T = IV3T(name = self.name+'_Vfit', meastype=meastype)
+                Vfit3T.box('VA',-Vmax, Vmax, pnts, 'VB', -Vmax, Vmax, pnts)
+                Vfit3T.convert('V', 'load2dev') 
+                self.I3Trel(Vfit3T)    #necessary
+                
+            if hex:
+                Vargs = {'xkey':'Vxhex', 'ykey':'Vyhex'}
+            else:
+                Vargs = {'xkey':Vfit3T.xkey, 'ykey':Vfit3T.ykey}
+                
+            if Vdata3T:                
+                Vax, Vobjs = Vdata3T.plot(**Vargs)    # plot data
+                #Vfit3T.plot(inplot = (Vax, Vobjs), cmap=None, ccont='red', **Vargs) #append fit
+            else:
+                Vax, Vobjs = Vfit3T.plot(cmap=None, ccont='red', **Vargs)
+                
+            fitsp.addpoints(Vax, Vargs['xkey'], Vargs['ykey'], **pltargs)
+           
+        ToutBox = widgets.HBox([Lout, Rout], layout=junc_layout) 
+         
+        in_name.observe(on_3Tchange,names='value') #update values
+        in_Rz.observe(on_3Tchange,names='value') #update values
+
+        # junction ui
         uit = self.top.controls()
         uib = self.bot.controls()
-        junc_ui = widgets.HBox([uit,uib], layout=junc_layout) 
-        ui = widgets.VBox([tand_ui, junc_ui]) 
-        return ui
+        junc_ui = widgets.HBox([uit,uib]) 
+        for jui in [uit, uib]:
+            kids = jui.children
+            for cntrl in kids:
+                if type(cntrl) in replot_types:
+                    cntrl.observe(on_3Treplot,names='value')  #replot
+        in_Rz.observe(on_3Treplot,names='value')  #replot
+        in_3Tbut.on_click(on_3Treplot)  #replot  
+        
+        ui = widgets.VBox([ToutBox, tand_ui, junc_ui])       
+        self.ui = ui
+        
+        return ui, Vax, Iax
         
     def plot(self, pnts=31, meastype='CZ', oper = 'load2dev', cmap='terrain'):
         '''
         calculate and plot Tandem3T devices 'self'
+        
         '''
         
         #bounding points
         factor = 1.2
+        pltargs={'lw':0, 'ms':7, 'mew':1, 'mec':'black', 'mfc':'white', 'marker':'o', 'c':'red', 'label':'fitsp', 'zorder':5}
         sp = self.specialpoints(meastype)
         colors = ['white','lightgreen','lightgray','pink','orange',
             'cyan','cyan','cyan','cyan','cyan'] 
@@ -734,7 +939,7 @@ class Tandem3T(object):
                    
         iv = list()  #empty list to contain IV3T structures
         axs = list()  #empty list to contain axis of each figure
-        figs = list()  #empty list to contain each figure
+        #figs = list()  #empty list to contain each figure
 
         for i, VorI in enumerate(['V','I']):
             
@@ -780,21 +985,21 @@ class Tandem3T(object):
               
             sp.append(iv[i].MPP(VorI))  #append MPP of current iv[i] to special points
             
-            fig, ax, objs = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap)  
-            sp.addpoints(ax, colors, xkey=xkey, ykey=ykey) 
+            ax, objs = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap)  
+            sp.addpoints(ax, xkey, ykey, **pltargs) 
             axs.append(ax)
-            figs.append(fig)
+            #figs.append(fig)
             
             xkey = VorI + 'xhex'
             ykey = VorI + 'yhex'
-            fig, ax, objs = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap) 
-            sp.addpoints(ax, colors, xkey=xkey, ykey=ykey) 
+            ax, objs = iv[i].plot(xkey=xkey, ykey=ykey, cmap=cmap) 
+            sp.addpoints(ax, xkey, ykey, **pltargs) 
             axs.append(ax)
-            figs.append(fig)    
+            #figs.append(fig)    
            
             te = time()
             dt=(te-ts)
             print('axs[{0:g}]: {1:d}pnts , {2:2.4f} s'.format(i,pnts,dt))
  
-        return figs, axs, iv, sp
+        return axs, iv, sp
  

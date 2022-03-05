@@ -283,10 +283,6 @@ class IV3T(object):
                 hex3T.convert(VorI=VorI, oper='dev2hex')
                 xx=getattr(hex3T,xhex)
                 yy=getattr(hex3T,yhex)
-                if ycon == 0:  #origin
-                    ax.plot(xx,yy, c='gray')
-                else:
-                    ax.plot(xx,yy, ls=(0,(1,3)), c='gray')
                 #label
                 ylab = ykey + ' = ' + str(ycon)
                 yindex = devlist.index(ykey)
@@ -302,6 +298,11 @@ class IV3T(object):
                 xt = (np.nanmin(xx) + np.nanmax(xx) * (nn-1.))/nn
                 yt = (np.nanmin(yy) + np.nanmax(yy) * (nn-1.))/nn
                 ax.text(xt, yt, ylab, rotation=rot, rotation_mode='anchor', clip_on=True)  #,bbox=dict(facecolor='white'))         
+                # plot
+                if ycon == 0:  #origin
+                    ax.plot(xx,yy, c='gray', label = "_"+ylab)
+                else:
+                    ax.plot(xx,yy, ls=(0,(1,3)), c='gray', label = "_"+ylab)
           
     def nanpnt(self,index):
         '''
@@ -694,9 +695,15 @@ class IV3T(object):
             
         
         dim=len(self.shape)
-        if dim != 2: return 'err 1', dim  
-        if xkey not in self.arraykeys: return 'err 2', xkey
-        if ykey not in self.arraykeys: return 'err 3', ykey
+        if dim != 2: 
+            fig, ax = plt.subplots() 
+            return ax, ['error dim='+str(dim)]
+        if xkey not in self.arraykeys: 
+            fig, ax = plt.subplots() 
+            return ax, ['error xkey='+xkey]
+        if ykey not in self.arraykeys:
+            fig, ax = plt.subplots() 
+            return ax, ['error ykey='+ykey]
         
         VorI = xkey[0]
         if VorI == 'I':
@@ -732,9 +739,13 @@ class IV3T(object):
         levels = [ll*lstep for ll in range(20) if ll*lstep <= Pmax]  # for contours
         
         #print(self.name) # tag this instance
+        handles = []
+        labels = []
         if inplot:  # start with old plot
-            fig, ax, objs = inplot            
-            handles, labels = ax.get_legend_handles_labels()  # legend items to be added       
+            ax, objs = inplot 
+            fig = ax.get_figure()   #figure from axes 
+            fig.set_figheight(4)          
+            #handles, labels = ax.get_legend_handles_labels()  # legend items to be added       
             oldlegend = ax.get_legend()
             if type(oldlegend) is mpl.legend.Legend:
                 texts = oldlegend.get_texts()
@@ -745,7 +756,7 @@ class IV3T(object):
                     labels.append(text.get_text())
         else:
             fig, ax = plt.subplots()            
-            handles, labels = ax.get_legend_handles_labels()  # legend items to be added       
+            #handles, labels = ax.get_legend_handles_labels()  # legend items to be added       
             objs = []  # list of objects in plot for further manipulation
             ax.set_aspect(1)
             if 'hex' in xkey:
@@ -774,32 +785,34 @@ class IV3T(object):
                 msize = round(4000/len(zz))   # marker size to fill in
                 imag = ax.scatter(xx, yy, s=msize, c=zz, marker='h', cmap=cmap, \
                     vmin=0, vmax=Pmax)
-            objs.append(imag)
+            objs.append(imag)  # output image as object
 
             if bar == True:
                 #colorbar
                 cb = plt.colorbar(imag, ax=ax, shrink=0.6, ticks=levels)
                 cb.set_label(zlab)
-                objs.append(cb)
+                objs.append(cb)  # output colorbar as ColorBar
 
         if ccont:  #don't add contour if ccont == None
             #contour
             cont = ax.contour(xx, yy, zz, colors = ccont,
                            levels = levels)
             ax.clabel(cont, inline=True, fontsize=10)  
-            objs.append(cont)
+            objs.append(cont)  # output contour as QuadContourSet object
             hands,labs = cont.legend_elements() # lists of each line in contour
-            #handles += hands
-            #labels += labs
-            handles.append(hands[0])
-            labels.append(self.name)
+            if self.name in labels:
+                handles[labels.index(self.name)]    #change handle of self.name
+            else:
+                handles.append(hands[0])
+                labels.append(self.name)
             ax.legend(handles, labels, title='Contours') 
             
                         
-        return fig, ax, objs
+        return ax, objs #fig = ax.get_figure()
         
-    def addpoints(self, ax, colors='black', xkey='VA', ykey='VB', lines=False):
-        #add points to existing axes 
+    #def addpoints(self, ax, colors='black', xkey='VA', ykey='VB', lines=False, label='iv3Tpnts'):
+    def addpoints(self, ax, xkey, ykey, **kwargs):
+        #add iv3T points to existing axes 
         VorI = xkey[0]
         if VorI == 'I':
             scale = 1000.
@@ -807,9 +820,12 @@ class IV3T(object):
             scale = 1.
         xp = getattr(self, xkey) * scale
         yp = getattr(self, ykey) * scale
+        ax.plot(xp, yp, **kwargs)
+        '''
         if lines:
-            ax.plot(xp, yp, lw=2, c='black')
-        else:        
+            #ax.plot(xp, yp, lw=2, c=colors, label=label)
+            ax.plot(xp, yp, lw=0, marker='o', c=colors, label=label)
+        else:  # scatter does not have data too complicated      
             ax.scatter(xp, yp, marker='o', s=150, c=colors[:len(xp)], edgecolors='black', \
-                linewidths = 2, zorder=5)
-      
+                linewidths = 2, zorder=5, label=label)
+        '''

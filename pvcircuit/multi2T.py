@@ -334,22 +334,19 @@ class Multi2T(object):
         '''
         use interactive_output for GUI in IPython
         '''
-        tand_layout = widgets.Layout(width= '200px', height='40px')
+        tand_layout = widgets.Layout(width= '300px', height='40px')
         junc_layout = widgets.Layout(display='flex',
                     flex_flow='row',
                     justify_content='space-around')
+        multi_layout = widgets.Layout(display='flex', 
+                    flex_flow='row',
+                    justify_content='space-around')
 
-        in_name = widgets.Text(value=self.name,description='name', layout=tand_layout,
-            continuous_update=False)                        
-        in_Rs2T = widgets.BoundedFloatText(value=self.Rs2T, min=0., step=0.1,
-            description='Rs2T',layout=tand_layout)
-        in_2Tbut = widgets.Button(description = 'Recalc', button_style='success', 
-            tooltip='slow calculations')
-         
-        tand_dict = {'name': in_name, 'Rs2T': in_Rs2T}
-        #tandout = widgets.interactive_output(self.set, tand_dict)       
-        tand_ui = widgets.HBox([in_name, in_Rs2T, in_2Tbut], layout=junc_layout)
-        
+        replot_types = [widgets.widgets.widget_float.BoundedFloatText, 
+                        widgets.widgets.widget_int.BoundedIntText,
+                        widgets.widgets.widget_int.IntSlider,
+                        widgets.widgets.widget_float.FloatSlider,
+                        widgets.widgets.widget_float.FloatLogSlider]
 
         def on_2Tchange(change):
             # function for changing values
@@ -361,7 +358,7 @@ class Multi2T(object):
             with self.debugout: print('Mcontrol: ' + desc + '->', value)
             self.set(**{desc:value})
 
-        def on_replot(change):
+        def on_2Treplot(change):
             # change info
             fast=True
             if type(change) is widgets.widgets.widget_button.Button:
@@ -431,24 +428,32 @@ class Multi2T(object):
 
         # Left output -> dark
         Lout = widgets.Output()
-        Lout.layout.height = '580px'
         with Lout: # output device
             #print(desc, old, new)
             dfig, dax = self.plot(dark=True) 
+            dfig.set_figheight(4)
             
         # Right output -> light
         Rout = widgets.Output()
-        Rout.layout.height = '580px'
         with Rout: # output device
             #print(desc, old, new)
             lfig, lax = self.plot(dark=False) 
+            lfig.set_figheight(4)
             
         ToutBox = widgets.HBox([Lout, Rout], layout=junc_layout) 
 
-        # Bottom output
-        #Bout = self.debugout
-        #Bout = widgets.Output()
-        #Bout.layout.height = '200px'
+        # tandem3T controls
+        in_tit = widgets.Label(value='Multi2T: ', description='title')
+        in_name = widgets.Text(value=self.name,description='name', layout=tand_layout,
+            continuous_update=False)                        
+        in_Rs2T = widgets.FloatLogSlider(value=self.Rs2T, base=10, min=-6, max=3, step=0.01,
+            description='Rs2T',layout=tand_layout,readout_format='.2e')
+        in_2Tbut = widgets.Button(description = 'Recalc', button_style='success', 
+            tooltip='slow calculations')
+         
+        tand_dict = {'name': in_name, 'Rs2T': in_Rs2T}
+        #tandout = widgets.interactive_output(self.set, tand_dict)       
+        tand_ui = widgets.HBox([in_tit, in_2Tbut, in_Rs2T, in_name])
 
         in_name.observe(on_2Tchange,names='value') #update values
         in_Rs2T.observe(on_2Tchange,names='value') #update values
@@ -459,14 +464,12 @@ class Multi2T(object):
             jui.append(self.j[i].controls())
             kids = jui[i].children
             for cntrl in kids:
-                if type(cntrl) is widgets.widgets.widget_float.BoundedFloatText:
-                    cntrl.observe(on_replot,names='value')  #replot
-                elif type(cntrl) is  widgets.widgets.widget_int.BoundedIntText:
-                    cntrl.observe(on_replot,names='value')  #replot
-        in_Rs2T.observe(on_replot,names='value')  #replot
-        in_2Tbut.on_click(on_replot)  #replot  
+                if type(cntrl) in replot_types:
+                    cntrl.observe(on_2Treplot,names='value')  #replot
+        in_Rs2T.observe(on_2Treplot,names='value')  #replot
+        in_2Tbut.on_click(on_2Treplot)  #replot  
  
-        junc_ui = widgets.HBox(jui, layout=junc_layout) 
+        junc_ui = widgets.HBox(jui) 
         
         ui = widgets.VBox([ToutBox, tand_ui, junc_ui])
         self.ui = ui
