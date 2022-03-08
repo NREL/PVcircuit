@@ -561,7 +561,6 @@ class Junction(object):
                          
         for cntrl in cntrls:
             cntrl.observe(on_juncchange,names='value')
-            pass
 
         #output
         iout = widgets.Output()

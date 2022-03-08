@@ -82,7 +82,7 @@ class Tandem3T(object):
         
         if self.ui:  # Multi2T user interface has been created
             Boxes = self.ui.children
-            for cntrl in Boxes[1].children: #Multi2T controls
+            for cntrl in Boxes[2].children: #Multi2T controls
                 desc = cntrl._trait_values.get('description','nodesc')  #does not fail when not present
                 cval = cntrl._trait_values.get('value','noval')  #does not fail when not present
                 if desc in ['name', 'Rz']:   # Multi2T controls to update
@@ -736,6 +736,8 @@ class Tandem3T(object):
         use interactive_output for GUI in IPython
         '''
         tand_layout = widgets.Layout(width= '300px', height='40px')
+        vout_layout = widgets.Layout(width= '180px', height='40px')
+        grid_layout = widgets.Layout(grid_template_columns='repeat(2, 180px)', grid_template_rows='repeat(3, 30px)', height='100px')
         junc_layout = widgets.Layout(display='flex',
                     flex_flow='row',
                     justify_content='space-around')
@@ -771,6 +773,22 @@ class Tandem3T(object):
               
             #recalculate            
             fitsp = self.specialpoints(meastype = meastype, fast=fast)
+            # summary line
+            fmtstr = '(Vzt = {0:>5.3f}, Vrz = {1:>5.3f}, Vtr = {2:>5.3f} V),   '
+            fmtstr += '(Iro = {3:>5.2f}, Izo = {4:>5.2f}, Ito = {5:>5.2f} mA)'
+            if 'MPP' in fitsp.names: # not fast
+                    ii = fitsp.names.index('MPP')  # index of MPP from sp
+                    fmtstr += ',   Pmp = {6:>5.2f} mW'
+                    outstr = fmtstr.format(fitsp.Vzt[0], fitsp.Vrz[0],fitsp.Vtr[0],
+                            fitsp.Iro[1]*scale, fitsp.Izo[1]*scale, fitsp.Ito[1]*scale,
+                            fitsp.Ptot[ii]*scale)
+            else:
+                outstr = fmtstr.format(fitsp.Vzt[0], fitsp.Vrz[0],fitsp.Vtr[0],
+                        fitsp.Iro[1]*scale, fitsp.Izo[1]*scale, fitsp.Ito[1]*scale)
+
+            #outstr = 'text'
+            VoutBox.clear_output()
+            with VoutBox:   print(outstr)
             
             with Rout: # right output device -> I
                 #replot  
@@ -829,9 +847,7 @@ class Tandem3T(object):
             description='Rz',layout=tand_layout,readout_format='.2e')
         in_3Tbut = widgets.Button(description = 'Recalc', button_style='success', 
             tooltip='slow calculations')
-
-        tand_dict = {'name': in_name, 'Rz': in_Rz}
- 
+        tand_dict = {'name': in_name, 'Rz': in_Rz} 
         #tandout = widgets.interactive_output(self.set, tand_dict)       
         tand_ui = widgets.HBox([in_tit, in_3Tbut, in_Rz, in_name])
         
@@ -844,6 +860,11 @@ class Tandem3T(object):
         Vmax = max(abs(fitsp.Vzt[0]), abs(fitsp.Vrz[0]), abs(fitsp.Vtr[0])) * 2.
         Imax = max(abs(fitsp.Iro[1]), abs(fitsp.Izo[1]), abs(fitsp.Ito[1])) * 2.
             
+        # summary line
+        VoutBox = widgets.Output()
+        VoutBox.layout.height = '40px'
+        with VoutBox: print('Summary')
+
         # Right output -> light
         Rout = widgets.Output()
         #Rout.layout.height = '580px'
@@ -915,7 +936,7 @@ class Tandem3T(object):
         in_Rz.observe(on_3Treplot,names='value')  #replot
         in_3Tbut.on_click(on_3Treplot)  #replot  
         
-        ui = widgets.VBox([ToutBox, tand_ui, junc_ui])       
+        ui = widgets.VBox([ToutBox, VoutBox, tand_ui, junc_ui])       
         self.ui = ui
         
         return ui, Vax, Iax

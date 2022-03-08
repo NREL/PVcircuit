@@ -131,7 +131,7 @@ class Multi2T(object):
         
         if self.ui:  # Multi2T user interface has been created
             Boxes = self.ui.children
-            for cntrl in Boxes[1].children: #Multi2T controls
+            for cntrl in Boxes[2].children: #Multi2T controls
                 desc = cntrl._trait_values.get('description','nodesc')  #does not fail when not present
                 cval = cntrl._trait_values.get('value','noval')  #does not fail when not present
                 if desc in ['name', 'Rs2T']:   # Multi2T controls to update
@@ -335,6 +335,7 @@ class Multi2T(object):
         use interactive_output for GUI in IPython
         '''
         tand_layout = widgets.Layout(width= '300px', height='40px')
+        vout_layout = widgets.Layout(width= '180px', height='40px')
         junc_layout = widgets.Layout(display='flex',
                     flex_flow='row',
                     justify_content='space-around')
@@ -377,6 +378,13 @@ class Multi2T(object):
             Eg_list = self.proplist('Eg') #list of Eg 
             Egmax = sum(Eg_list)
             scale = 1000.
+
+            out_Voc.value = ('{0:>7.3f} V'.format(MPP['Voc']))
+            out_Isc.value = ('{0:>7.2f} mA'.format(MPP['Isc']*scale))
+            out_FF.value = ('{0:>7.1f}%'.format(MPP['FF']*100))
+            out_Pmp.value = ('{0:>7.1f} mW'.format(MPP['Pmp']*scale))
+            out_Vmp.value = ('{0:>7.3f} V'.format(MPP['Vmp']))
+            out_Imp.value = ('{0:>7.2f} mA'.format(MPP['Imp']*scale))
             
             with Lout: # left output device -> dark
                 #replot
@@ -414,7 +422,8 @@ class Multi2T(object):
                         line.set_data(Vlight, Ilight*scale)
                     elif linelabel.find('points')  >= 0:
                         line.set_data(self.Vpoints,self.Ipoints*scale)
-                if True:
+
+                if False:
                     Jext_list = self.proplist('Jext') #remember list external photocurrents 
                     snote = 'T = {0:.1f} C, Rs2T = {1:g} Ω cm2, A = {2:g} cm2'.format(self.TC, self.Rs2T, self.lightarea) 
                     snote += '\nEg = '+str(Eg_list) + ' eV'
@@ -441,19 +450,27 @@ class Multi2T(object):
             lfig.set_figheight(4)
             
         ToutBox = widgets.HBox([Lout, Rout], layout=junc_layout) 
+        
+        # numerical outputs
+        in_tit = widgets.Label(value='Multi2T: ', description='title')
+        out_Voc = widgets.Text(value='Voc', description='Voc', disabled=True, layout=vout_layout)
+        out_Isc = widgets.Text(value='Isc', description='Isc', disabled=True, layout=vout_layout)
+        out_FF = widgets.Text(value='FF', description='FF', disabled=True, layout=vout_layout)
+        out_Pmp = widgets.Text(value='Pmp', description='Pmp', disabled=True, layout=vout_layout)
+        out_Vmp = widgets.Text(value='Vmp', description='Vmp', disabled=True, layout=vout_layout)
+        out_Imp = widgets.Text(value='Imp', description='Imp', disabled=True, layout=vout_layout)
+        VoutBox = widgets.HBox([in_tit,out_Voc,out_Isc,out_FF,out_Pmp,out_Vmp,out_Imp])
 
         # tandem3T controls
-        in_tit = widgets.Label(value='Multi2T: ', description='title')
         in_name = widgets.Text(value=self.name,description='name', layout=tand_layout,
             continuous_update=False)                        
         in_Rs2T = widgets.FloatLogSlider(value=self.Rs2T, base=10, min=-6, max=3, step=0.01,
             description='Rs2T',layout=tand_layout,readout_format='.2e')
         in_2Tbut = widgets.Button(description = 'Recalc', button_style='success', 
-            tooltip='slow calculations')
-         
+            tooltip='slow calculations')         
         tand_dict = {'name': in_name, 'Rs2T': in_Rs2T}
         #tandout = widgets.interactive_output(self.set, tand_dict)       
-        tand_ui = widgets.HBox([in_tit, in_2Tbut, in_Rs2T, in_name])
+        tand_ui = widgets.HBox([in_2Tbut, in_Rs2T, in_name])
 
         in_name.observe(on_2Tchange,names='value') #update values
         in_Rs2T.observe(on_2Tchange,names='value') #update values
@@ -471,9 +488,10 @@ class Multi2T(object):
  
         junc_ui = widgets.HBox(jui) 
         
-        ui = widgets.VBox([ToutBox, tand_ui, junc_ui])
+        ui = widgets.VBox([ToutBox, VoutBox, tand_ui, junc_ui])
         self.ui = ui
-        
+        in_2Tbut.click() #fill in MPP values
+
         # return entire user interface, dark and light graph axes for tweaking
         return ui, dax, lax
 
@@ -624,14 +642,15 @@ class Multi2T(object):
             lax.axhline(0, ls='--', c='gray', label='_hline')
             #lax.legend()
         
-            # annotate
-            snote = 'T = {0:.1f} C, Rs2T = {1:g} Ω cm2, A = {2:g} cm2'.format(self.TC, self.Rs2T, self.lightarea) 
-            snote += '\nEg = '+str(Eg_list) + ' eV'
-            snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
-            snote += '\nVoc = {0:.3f} V, Isc = {1:.2f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
-                .format(Voc, MPP['Isc']*1000, MPP['FF']*100, MPP['Pmp']*1000)
+            if False:
+                # annotate
+                snote = 'T = {0:.1f} C, Rs2T = {1:g} Ω cm2, A = {2:g} cm2'.format(self.TC, self.Rs2T, self.lightarea) 
+                snote += '\nEg = '+str(Eg_list) + ' eV'
+                snote += '\nJext = '+str(Jext_list*1000) + ' mA/cm2'
+                snote += '\nVoc = {0:.3f} V, Isc = {1:.2f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW'\
+                    .format(Voc, MPP['Isc']*1000, MPP['FF']*100, MPP['Pmp']*1000)
             
-            #lax.text(Vmin+0.1,Imax/2,snote,zorder=5,bbox=dict(facecolor='white'))
-            lax.text(0.05,0.95, snote, verticalalignment='top', label='mpptext',
-                        bbox=dict(facecolor='white'), transform=lax.transAxes)
+                #lax.text(Vmin+0.1,Imax/2,snote,zorder=5,bbox=dict(facecolor='white'))
+                lax.text(0.05,0.95, snote, verticalalignment='top', label='mpptext',
+                            bbox=dict(facecolor='white'), transform=lax.transAxes)
             return lfig, lax
