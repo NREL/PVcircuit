@@ -94,7 +94,7 @@ Reverse saturation currents (A/cm2) corresponding to each n[] and J0ratio[] *num
 ### Junction.copy()
 Create a copy of a Junction
 
-### Junction.set()
+### Junction.set(\**kwargs)
 Controlled change of Junction attributes
 
 ### Junction.controls()
@@ -185,7 +185,7 @@ Create a Multi2T object from a Tandem3T object
 ### Multi2T.single(junc, copy=True)
 Create a Multi2T object from a Junction object
 
-### Multi2T.set()
+### Multi2T.set(\**kwargs)
 Controlled change of Multi2T and its Junction's attributes 
 
 ### Multi2T.proplist(key)
@@ -280,7 +280,7 @@ Maximum of the contained Junction.totalareas
 ### Tandem3T.copy()
 Create a copy of this Tandem3T object
 
-### Tandem3T.set()
+### Tandem3T.set(\**kwargs)
 Controlled change of Tandem3T and its Junction's attributes 
 
 ### Tandem3T.controls()
@@ -458,7 +458,7 @@ Input a list of 2 or 3 of the device input keys:
             3 -> check the validity of 3 device parameters
             
 ### IV3T.Pcalc(oper='dev2load', meastype=None)
-Calculate Ptot using oper = 'dev2load' or 'load2dev'
+Calculate Ptot after converting using oper = 'dev2load' or 'load2dev'
 
 ### IV3T.loadlabel(load, meastype=None)
 Return descriptive axis label for load variables. Add an extra character to swap the loads: 'CRo','CTo','CZo', 'CFo'
@@ -477,18 +477,14 @@ import csv file as data table into iv3T object
 
 two 2D arrays with x and y index on top and left
 
-load variables:
-
-VA(IA,IB) & VB(IA,IB) .......... VorI='I'
-
-or
-
-IA(VA,VB) & IB(VA,VB) .......... VorI='V'
-
-Iscale converts currnet mA -> A or mA/cm2-> A
+    load variables:
+    VA(IA,IB) & VB(IA,IB) .......... VorI='I'
+    or
+    IA(VA,VB) & IB(VA,VB) .......... VorI='V'
+    Iscale converts current mA -> A or mA/cm2-> A
         
 ### IV3T.plot(xkey = None, ykey = None, zkey = None, inplot = None, cmap='terrain', ccont = 'black', bar = True)
 Plot 2D IV3T object zkey(xkey,ykey) as image if evenly spaced or randomly spaced with contours
 
-### IV3T.addpoints(ax, xkey, ykey, kwargs)
+### IV3T.addpoints(ax, xkey, ykey, \**kwargs)
 Plot IV3T points or lines onto existing axes
