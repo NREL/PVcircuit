@@ -100,7 +100,7 @@ class IV3T(object):
 
     def copy(self):
         '''
-        create a separate complete copy of a junction
+        create a separate complete copy of a IV3T
         '''
         return copy.copy(self)
         
