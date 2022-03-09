@@ -775,7 +775,7 @@ class Tandem3T(object):
                 fast = False
                 Vcalc = True
                 Icalc = True
-            elif desc == 'Vonly':
+            elif desc == 'V(I)':
                 fast = False
                 Vcalc = True
             elif desc == 'MPPcalc':
@@ -862,11 +862,11 @@ class Tandem3T(object):
         in_Rz = widgets.FloatLogSlider(value=self.Rz, base=10, min=-6, max=3, step=0.01,
             description='Rz',layout=tand_layout,readout_format='.2e')
         in_3Tbut = widgets.Button(description = 'Recalc', button_style='success', 
-            tooltip='slow calculations')
-        in_Vbut = widgets.Button(description = 'Vonly', button_style='success', 
-            tooltip='slow calculations')
+            tooltip='slowest calculations')
+        in_Vbut = widgets.Button(description = 'V(I)', button_style='success', 
+            tooltip='moderately fast calculations')
         in_Mbut = widgets.Button(description = 'MPPcalc', button_style='success', 
-            tooltip='slow calculations')
+            tooltip='fairly quick calculations')
         tand_dict = {'name': in_name, 'Rz': in_Rz} 
         #tandout = widgets.interactive_output(self.set, tand_dict)       
         tand_ui = widgets.HBox([in_tit, in_name, in_Rz, in_3Tbut, in_Vbut, in_Mbut])
