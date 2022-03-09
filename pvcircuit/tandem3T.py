@@ -747,7 +747,7 @@ class Tandem3T(object):
                         widgets.widgets.widget_float.FloatSlider,
                         widgets.widgets.widget_float.FloatLogSlider]
         scale=1000.
-        pnts = 31
+        pnts = 71
         pltargs={'lw':0, 'ms':7, 'mew':1, 'mec':'black', 'mfc':'white', 'marker':'o', 'c':'red', 'label':'fitsp', 'zorder':5}
                          
         def on_3Tchange(change):
@@ -763,28 +763,40 @@ class Tandem3T(object):
         def on_3Treplot(change):
             # change info
             fast=True
+            Vcalc = False
+            Icalc = False
             if type(change) is widgets.widgets.widget_button.Button:
                 owner = change
                 desc = owner.description  
             else: # other controls
                 owner = change['owner'] #control                
             desc = owner.description  
-            if desc == 'Recalc': fast = False
-              
-            #recalculate            
+            if desc == 'Recalc': 
+                fast = False
+                Vcalc = True
+                Icalc = True
+            elif desc == 'Vonly':
+                fast = False
+                Vcalc = True
+            elif desc == 'MPPcalc':
+                fast = False
+             
+            #recalculate
+            ts = time()            
             fitsp = self.specialpoints(meastype = meastype, fast=fast)
             # summary line
-            fmtstr = '(Vzt = {0:>5.3f}, Vrz = {1:>5.3f}, Vtr = {2:>5.3f} V),   '
+            fmtstr = 'Fit:  (Vzt = {0:>5.3f}, Vrz = {1:>5.3f}, Vtr = {2:>5.3f} V),   '
             fmtstr += '(Iro = {3:>5.2f}, Izo = {4:>5.2f}, Ito = {5:>5.2f} mA)'
             if 'MPP' in fitsp.names: # not fast
-                    ii = fitsp.names.index('MPP')  # index of MPP from sp
-                    fmtstr += ',   Pmp = {6:>5.2f} mW'
-                    outstr = fmtstr.format(fitsp.Vzt[0], fitsp.Vrz[0],fitsp.Vtr[0],
-                            fitsp.Iro[1]*scale, fitsp.Izo[1]*scale, fitsp.Ito[1]*scale,
-                            fitsp.Ptot[ii]*scale)
+                ii = fitsp.names.index('MPP')  # index of MPP from sp
+                fmtstr += ',   Pmp = {6:>5.2f} mW'
+                outstr = fmtstr.format(fitsp.Vzt[0], fitsp.Vrz[0],fitsp.Vtr[0],
+                        fitsp.Iro[1]*scale, fitsp.Izo[1]*scale, fitsp.Ito[1]*scale,
+                        fitsp.Ptot[ii]*scale)
             else:
                 outstr = fmtstr.format(fitsp.Vzt[0], fitsp.Vrz[0],fitsp.Vtr[0],
                         fitsp.Iro[1]*scale, fitsp.Izo[1]*scale, fitsp.Ito[1]*scale)
+            tmp = time()
 
             #outstr = 'text'
             VoutBox.clear_output()
@@ -799,7 +811,7 @@ class Tandem3T(object):
                         xp = getattr(fitsp, Iargs['xkey']) * scale 
                         yp = getattr(fitsp, Iargs['ykey']) * scale
                         line.set_data(xp,yp)
-                if not fast:
+                if Vcalc:
                     self.V3T(Ifit3T)
                     for i, obj in enumerate(Iobjs):
                         if type(obj) is mpl.contour.QuadContourSet: #contours
@@ -814,6 +826,7 @@ class Tandem3T(object):
                                 break
                                     
                     Ifit3T.plot(inplot = (Iax, Iobjs), cmap=None, ccont='red', **Iargs)  #replot fit contour
+                tI = time()
 
             with Lout: # left output device -> V
                 #replot  
@@ -824,7 +837,7 @@ class Tandem3T(object):
                         xp = getattr(fitsp, Vargs['xkey']) 
                         yp = getattr(fitsp, Vargs['ykey'])
                         line.set_data(xp,yp)
-                if not fast:
+                if Icalc:
                     self.I3Trel(Vfit3T)    #slow
                     for i, obj in enumerate(Vobjs):
                         if type(obj) is mpl.contour.QuadContourSet: #contours
@@ -839,7 +852,10 @@ class Tandem3T(object):
                                 break
                                 
                     Vfit3T.plot(inplot = (Vax, Vobjs), cmap=None, ccont='red', **Vargs) #replot fit contour
- 
+                tV = time()
+
+            with VoutBox:   print('sp{0:>6.2f}, I{1:>6.2f}, V{2:>6.2f} s'.format((tmp-ts), (tI-tmp), (tV-tI))) 
+
         # Tandem 3T controls
         in_tit = widgets.Label(value='Tandem3T: ', description='title')
         in_name = widgets.Text(value=self.name,description='name', layout=tand_layout)                        
@@ -847,9 +863,13 @@ class Tandem3T(object):
             description='Rz',layout=tand_layout,readout_format='.2e')
         in_3Tbut = widgets.Button(description = 'Recalc', button_style='success', 
             tooltip='slow calculations')
+        in_Vbut = widgets.Button(description = 'Vonly', button_style='success', 
+            tooltip='slow calculations')
+        in_Mbut = widgets.Button(description = 'MPPcalc', button_style='success', 
+            tooltip='slow calculations')
         tand_dict = {'name': in_name, 'Rz': in_Rz} 
         #tandout = widgets.interactive_output(self.set, tand_dict)       
-        tand_ui = widgets.HBox([in_tit, in_3Tbut, in_Rz, in_name])
+        tand_ui = widgets.HBox([in_tit, in_name, in_Rz, in_3Tbut, in_Vbut, in_Mbut])
         
         if Vdata3T:
             meastype = Vdata3T.meastype
@@ -872,6 +892,11 @@ class Tandem3T(object):
             if Idata3T:
                 Ifit3T =  Idata3T.copy()
                 Ifit3T.set(name = self.name+'_Ifit')
+                xs, ys = Ifit3T.shape
+                if xs*ys > pnts*pnts:  # too big
+                    Ifit3T.box(Ifit3T.xkey, min(Ifit3T.x), max(Ifit3T.x), pnts, 
+                                Ifit3T.ykey, min(Ifit3T.y), max(Ifit3T.y), pnts)
+                    Ifit3T.convert('I', 'load2dev')
                 self.V3T(Ifit3T)  #fast enough
             else:
                 Ifit3T = IV3T(name = self.name+'_Ifit', meastype=meastype)
@@ -899,6 +924,11 @@ class Tandem3T(object):
             if Vdata3T:
                 Vfit3T = Vdata3T.copy()
                 Vfit3T.set(name = self.name+'_Vfit')
+                xs, ys = Vfit3T.shape
+                if xs*ys > pnts*pnts:  # too big
+                    Vfit3T.box(Vfit3T.xkey, min(Vfit3T.x), max(Vfit3T.x), pnts, 
+                                 Vfit3T.ykey, min(Vfit3T.y), max(Vfit3T.y), pnts)
+                    Vfit3T.convert('V', 'load2dev')
                 #self.I3Trel(Vfit3T)    #too slow
             else:
                 Vfit3T = IV3T(name = self.name+'_Vfit', meastype=meastype)
@@ -935,6 +965,8 @@ class Tandem3T(object):
                     cntrl.observe(on_3Treplot,names='value')  #replot
         in_Rz.observe(on_3Treplot,names='value')  #replot
         in_3Tbut.on_click(on_3Treplot)  #replot  
+        in_Vbut.on_click(on_3Treplot)  #replot some  
+        in_Mbut.on_click(on_3Treplot)  #replot some  
         
         ui = widgets.VBox([ToutBox, VoutBox, tand_ui, junc_ui])       
         self.ui = ui

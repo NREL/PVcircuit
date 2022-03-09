@@ -371,6 +371,7 @@ class Multi2T(object):
             if desc == 'Recalc': fast = False
               
             #recalculate            
+            ts = time()            
             Idark, Vdark, Vdarkmid = self.calcDark()
             Vlight, Ilight, Plight, MPP = self.calcLight(fast=fast)
             Voc = MPP['Voc']
@@ -378,14 +379,21 @@ class Multi2T(object):
             Eg_list = self.proplist('Eg') #list of Eg 
             Egmax = sum(Eg_list)
             scale = 1000.
+            fmtstr = 'Fit:  Voc = {0:>7.3f} V, Isc = {1:>7.2f} mA, FF = {2:>7.1f}%, '
+            fmtstr += 'Pmp = {3:>7.1f} mW, Vmp = {4:>7.3f} V, Imp = {5:>7.2f} mA'
+            outstr = fmtstr.format(MPP['Voc'], MPP['Isc']*scale, MPP['FF']*100,
+                                    MPP['Pmp']*scale, MPP['Vmp'], MPP['Imp']*scale)
 
-            out_Voc.value = ('{0:>7.3f} V'.format(MPP['Voc']))
-            out_Isc.value = ('{0:>7.2f} mA'.format(MPP['Isc']*scale))
-            out_FF.value = ('{0:>7.1f}%'.format(MPP['FF']*100))
-            out_Pmp.value = ('{0:>7.1f} mW'.format(MPP['Pmp']*scale))
-            out_Vmp.value = ('{0:>7.3f} V'.format(MPP['Vmp']))
-            out_Imp.value = ('{0:>7.2f} mA'.format(MPP['Imp']*scale))
+            #out_Voc.value = ('{0:>7.3f} V'.format(MPP['Voc']))
+            #out_Isc.value = ('{0:>7.2f} mA'.format(MPP['Isc']*scale))
+            #out_FF.value = ('{0:>7.1f}%'.format(MPP['FF']*100))
+            #out_Pmp.value = ('{0:>7.1f} mW'.format(MPP['Pmp']*scale))
+            #out_Vmp.value = ('{0:>7.3f} V'.format(MPP['Vmp']))
+            #out_Imp.value = ('{0:>7.2f} mA'.format(MPP['Imp']*scale))
             
+            VoutBox.clear_output()
+            with VoutBox:   print(outstr)
+
             with Lout: # left output device -> dark
                 #replot
                 if desc == 'Eg':
@@ -435,6 +443,15 @@ class Multi2T(object):
                         if kid.get_label() == 'mpptext':
                             kid.set(text=snote)
 
+            te = time()
+            dt=(te-ts)
+            with VoutBox:   print('{0:>6.2f} s'.format(dt))
+
+        # summary line
+        VoutBox = widgets.Output()
+        VoutBox.layout.height = '40px'
+        with VoutBox: print('Summary')
+
         # Left output -> dark
         Lout = widgets.Output()
         with Lout: # output device
@@ -452,16 +469,16 @@ class Multi2T(object):
         ToutBox = widgets.HBox([Lout, Rout], layout=junc_layout) 
         
         # numerical outputs
-        in_tit = widgets.Label(value='Multi2T: ', description='title')
         out_Voc = widgets.Text(value='Voc', description='Voc', disabled=True, layout=vout_layout)
         out_Isc = widgets.Text(value='Isc', description='Isc', disabled=True, layout=vout_layout)
         out_FF = widgets.Text(value='FF', description='FF', disabled=True, layout=vout_layout)
         out_Pmp = widgets.Text(value='Pmp', description='Pmp', disabled=True, layout=vout_layout)
         out_Vmp = widgets.Text(value='Vmp', description='Vmp', disabled=True, layout=vout_layout)
         out_Imp = widgets.Text(value='Imp', description='Imp', disabled=True, layout=vout_layout)
-        VoutBox = widgets.HBox([in_tit,out_Voc,out_Isc,out_FF,out_Pmp,out_Vmp,out_Imp])
+        #VoutBox = widgets.HBox([in_tit,out_Voc,out_Isc,out_FF,out_Pmp,out_Vmp,out_Imp])
 
         # tandem3T controls
+        in_tit = widgets.Label(value='Multi2T: ', description='title')
         in_name = widgets.Text(value=self.name,description='name', layout=tand_layout,
             continuous_update=False)                        
         in_Rs2T = widgets.FloatLogSlider(value=self.Rs2T, base=10, min=-6, max=3, step=0.01,
@@ -470,7 +487,7 @@ class Multi2T(object):
             tooltip='slow calculations')         
         tand_dict = {'name': in_name, 'Rs2T': in_Rs2T}
         #tandout = widgets.interactive_output(self.set, tand_dict)       
-        tand_ui = widgets.HBox([in_2Tbut, in_Rs2T, in_name])
+        tand_ui = widgets.HBox([in_tit, in_name, in_Rs2T, in_2Tbut])
 
         in_name.observe(on_2Tchange,names='value') #update values
         in_Rs2T.observe(on_2Tchange,names='value') #update values
