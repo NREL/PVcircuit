@@ -38,7 +38,20 @@ MAXITER=1000
 @lru_cache(maxsize = 100)
 def TK(TC): return TC + con.zero_Celsius
     #convert degrees celcius to kelvin
-         
+    
+@lru_cache(maxsize = 100)
+def Vth(TC): return k_q * TK(TC)
+    #Thermal voltage in volts = kT/q
+
+@lru_cache(maxsize = 100)
+def Jdb(TC, Eg):
+    #detailed balance saturation current
+
+    EgkT = Eg / Vth(TC)
+    
+    #Jdb from Geisz et al.
+    return DB_PREFIX * TK(TC)**3. * (EgkT*EgkT + 2.*EgkT + 2.) * np.exp(-EgkT)    #units from DB_PREFIX
+        
 class Junction(object):
     """
     Class for PV junctions.
@@ -245,30 +258,25 @@ class Junction(object):
         # external illumination is distributed over total area
                
     @property
-    def TK(self): return TK(self.TC)
+    def TK(self): 
+        #temperature in (K)
+        return TK(self.TC)
 
     @property
-    def Vth(self): return k_q * self.TK
+    def Vth(self): 
         #Thermal voltage in volts = kT/q
+        return Vth(self.TC)
 
     @property
-    def Jdb(self):
-        """
-        detailed balance saturation current
-        """
- 
-        EgkT = self.Eg / self.Vth
-        
-        #Jdb from Geisz et al.
-        return DB_PREFIX * self.TK**3. * (EgkT*EgkT + 2.*EgkT + 2.) * np.exp(-EgkT)    #units from DB_PREFIX
+    def Jdb(self): 
+        #detailed balance saturation current
+        return Jdb(self.TC, self.Eg)
     
     @property
     def J0(self):
-        '''
-        dynamically calculated J0(T)
-        return np.ndarray [J0(n0), J0(n1), etc]
-        '''
-        
+        #dynamically calculated J0(T)
+        #return np.ndarray [J0(n0), J0(n1), etc]
+    
         if (type(self.n) is np.ndarray) and (type(self.J0ratio) is np.ndarray):
             if self.n.size == self.J0ratio.size:
                 return (self.Jdb * self.J0scale)**(1./self.n) * self.J0ratio / self.J0scale 
@@ -276,7 +284,7 @@ class Junction(object):
                 return np.nan   # different sizes
         else:
            return np.nan    # not numpy.ndarray
-    
+       
     def _J0init(self,J0ref):
         '''
         initialize self.J0ratio from J0ref
