@@ -7,6 +7,20 @@ Based on publications:
 
 [J. F. Geisz, et al., Cell Reports Physical Science 2, p. 100677 (2021).](https://doi.org/10.1016/j.xcrp.2021.100677)
 
+### Installation
+- install GitHub Desktop
+- on this https://github.com/NREL/PVcircuit page click the green "Code" button and "Open with GitHub Desktop"
+- cd to the PVcircuit directory in terminal and type "pip install -e ."
+
+### Packages needed 
+- pandas
+- numpy
+- matplotlib
+- scipy
+- ipywidgets
+- ipympl
+- parse
+
 # Junction( ) Class
 A single *Junction* that can be combined together to form tandem and multijunction solar cells.
 
