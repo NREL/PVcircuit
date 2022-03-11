@@ -16,7 +16,7 @@ Based on publications:
 - pandas
 - numpy
 - matplotlib
-- scipy (need interp1D)
+- scipy
 - ipywidgets
 - ipympl
 - parse
