@@ -56,7 +56,7 @@ class Multi2T(object):
         
         return copy.copy(self)
 
-    def copy3T(dev3T):
+    def copy3T(dev3T,copy=True):
         '''
         create a Multi2T object that contains the values from a Tandem3T object
         input dev3T is Tandem3T object
@@ -66,11 +66,17 @@ class Multi2T(object):
         bot = dev3T.bot
         
         dev2T = Multi2T(name=dev3T.name, TC=dev3T.TC, Eg_list=[top.Eg, bot.Eg])
-        dev2T.j[0] = dev3T.top.copy()
-        dev2T.j[1] = dev3T.bot.copy()
         dev2T.set(Rs2T = (top.Rser * top.totalarea + bot.Rser * bot.totalarea) / dev3T.totalarea)
-        dev2T.j[0].Rser = 0.
-        dev2T.j[1].Rser = 0.
+        
+        if copy:
+            dev2T.j[0] = dev3T.top.copy() #disconnected
+            dev2T.j[1] = dev3T.bot.copy()
+        else:
+            dev2T.j[0] = dev3T.top #dynamically connected
+            dev2T.j[1] = dev3T.bot
+
+        #dev2T.j[0].Rser = 0. 
+        #dev2T.j[1].Rser = 0.
         
         return dev2T  
 
@@ -80,6 +86,8 @@ class Multi2T(object):
         from this you can calculate Voc, Jsc, MPP, plot, etc.
         '''
         dev2T = Multi2T(name=junc.name, TC=junc.TC, Eg_list=[junc.Eg])
+        dev2T.set(Rs2T = junc.Rser)
+        
         if copy:
             dev2T.j[0] = junc.copy()  #disconnected
         else:
@@ -193,8 +201,14 @@ class Multi2T(object):
                 self.j[i].JLC = 0.    # no LC in top junction
                 
             self.Vmid[i]  = self.j[i].Vdiode(I/self.j[i].totalarea) 
+
+        Vtot = np.sum(self.Vmid) + self.Rs2T * I / self.totalarea
+        
+        if not math.isfinite(Vtot): #if one nan all nan
+            #for i in range(self.njunc): self.Vmid[i]=np.nan
+            pass
             
-        return np.sum(self.Vmid) + self.Rs2T * I / self.totalarea
+        return Vtot
     
     def Imaxrev(self):
         #find max rev-bias current (w/o Gsh or breakdown)
@@ -373,7 +387,7 @@ class Multi2T(object):
             #recalculate            
             ts = time()            
             Idark, Vdark, Vdarkmid = self.calcDark()
-            Vlight, Ilight, Plight, MPP = self.calcLight(fast=fast)
+            Vlight, Ilight, Plight, Vlightmid, MPP = self.calcLight(fast=fast)
             Voc = MPP['Voc']
             Imax = self.Imaxrev()   
             Eg_list = self.proplist('Eg') #list of Eg 
@@ -381,8 +395,10 @@ class Multi2T(object):
             scale = 1000.
             fmtstr = 'Fit:  Voc = {0:>7.3f} V, Isc = {1:>7.2f} mA, FF = {2:>7.1f}%, '
             fmtstr += 'Pmp = {3:>7.1f} mW, Vmp = {4:>7.3f} V, Imp = {5:>7.2f} mA'
+            fmtstr += ', Eff = {6:>7.2f} %'
             outstr = fmtstr.format(MPP['Voc'], MPP['Isc']*scale, MPP['FF']*100,
-                                    MPP['Pmp']*scale, MPP['Vmp'], MPP['Imp']*scale)
+                                    MPP['Pmp']*scale, MPP['Vmp'], MPP['Imp']*scale, 
+                                    (MPP['Pmp']*scale/self.lightarea))
 
             #out_Voc.value = ('{0:>7.3f} V'.format(MPP['Voc']))
             #out_Isc.value = ('{0:>7.2f} mA'.format(MPP['Isc']*scale))
@@ -426,6 +442,18 @@ class Multi2T(object):
                     linelabel=line.get_label()
                     if linelabel.find('dark')  >= 0:
                         line.set_data(Vdark, Idark*scale)
+                    elif linelabel.find('light')  >= 0:
+                        line.set_data(Vlight, Ilight*scale)
+                    elif linelabel.find('points')  >= 0:
+                        line.set_data(self.Vpoints,self.Ipoints*scale)
+                    elif linelabel.find('junction') >= 0: # ljunction0, djunction0, etc
+                        for junc in range(self.njunc):
+                            if linelabel.endswith('junction'+str(junc)):
+                                if linelabel.startswith('d'):
+                                    line.set_data(Vdarkmid[:, junc], Idark*scale)
+                                elif linelabel.startswith('l'):
+                                    line.set_data(Vlightmid[:, junc], Ilight*scale)
+            
                     elif linelabel.find('light')  >= 0:
                         line.set_data(Vlight, Ilight*scale)
                     elif linelabel.find('points')  >= 0:
@@ -556,7 +584,13 @@ class Multi2T(object):
         #vertical portion
         ts = time()
         IxI = np.linspace(-Imax, Imax*2, pnts)
-        VxI = V2Tvect(IxI)
+        #VxI = V2Tvect(IxI)
+        VxI = np.full(pnts, np.nan, dtype=np.float64) # Vtotal
+        VmidxI = np.full((pnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
+        for ii, I in enumerate(IxI):
+            VxI[ii] = self.V2T(I)  # also sets self.Vmid[i]
+            for junc in range(self.njunc):
+                VmidxI[ii,junc] = self.Vmid[junc] 
         te = time()
         dsI=(te-ts)
         if timer: print(f'lightI {dsI:2.4f} s')
@@ -564,27 +598,39 @@ class Multi2T(object):
         if fast:
             Vlight = VxI
             Ilight = IxI
+            Vlightmid = VmidxI
         else:
             #horizonal portion slow part
             ts = time()
             VxV = np.linspace(Vmin, Voc, pnts)
-            IxV = I2Tvect(VxV)
+            #IxV = I2Tvect(VxV)
+            IxV = np.full(pnts, np.nan, dtype=np.float64) # Vtotal
+            VmidxV = np.full((pnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
+            for ii, V in enumerate(VxV):
+                IxV[ii] = self.I2T(V)  # also sets self.Vmid[i]
+                for junc in range(self.njunc):
+                    VmidxV[ii,junc] = self.Vmid[junc] 
             te = time()
             dsV=(te-ts)
             if timer: print(f'lightV {dsV:2.4f} s')
             #combine
             Vboth = np.concatenate((VxV,VxI),axis=None)
             Iboth = np.concatenate((IxV,IxI),axis=None)
+            Vbothmid = np.concatenate((VmidxV,VmidxI),axis=0)
             #sort
             p = np.argsort(Vboth)
             Vlight = Vboth[p]
             Ilight = Iboth[p]
-        
+            Vlightmid = []
+            for junc in range(self.njunc):
+                Vlightmid.append(np.take_along_axis(Vbothmid[:,junc], p, axis=0))
+            Vlightmid = np.transpose(np.array(Vlightmid))
+       
         Plight = np.array([(-v*j) for v, j in zip(Vlight,Ilight)])
         Vlight = np.array(Vlight)
         Ilight = np.array(Ilight) 
-            
-        return Vlight, Ilight, Plight, MPP
+           
+        return Vlight, Ilight, Plight, Vlightmid, MPP
 
     def plot(self,title='', pplot=False, dark=None, pnts=21,
             Vmin= -0.5, lolog = -8, hilog = 7, pdec = 5):
@@ -616,7 +662,7 @@ class Multi2T(object):
 
         if not dark:    
             # calc light IV 
-            Vlight, Ilight, Plight, MPP = self.calcLight() 
+            Vlight, Ilight, Plight, Vlightmid, MPP = self.calcLight() 
             Voc = MPP['Voc']
                                      
         if dark:
@@ -642,6 +688,11 @@ class Multi2T(object):
         else:
             # light plot        
             lfig, lax = plt.subplots()
+            if self.njunc > 1:
+                for junc in range(self.njunc):  #plot Vdiode of each junction
+                    lax.plot(Vdarkmid[:, junc], Idark*scale, marker='.',ls='', label='djunction'+str(junc))
+                    lax.plot(Vlightmid[:, junc], Ilight*scale, marker='.',ls='', label='ljunction'+str(junc))
+                
             lax.plot(Vdark, Idark*scale, lw=2, c='black', label='dark')  # dark IV curve
             lax.plot(Vlight, Ilight*scale, lw=2, c='black', label='light')  #IV curve         
             lax.plot(self.Vpoints,self.Ipoints*scale,\
