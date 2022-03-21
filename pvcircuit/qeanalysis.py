@@ -22,10 +22,12 @@ from pvcircuit.junction import *
 
 # constants
 k_q = con.k/con.e
+hc_k = con.h * con.c / con.k  * 1e9 #for wavelength (nm)
 DB_PREFIX = 2. * np.pi * con.e * (con.k/con.h)**3 / (con.c)**2 /1.e4    #about 1.0133e-8 for Jdb[A/cm2]
 nan=np.nan
-nm2ev=con.h * con.c / con.e * 1e9   #1239.852 from Igor
-Jconst=(1/100/100/nm2ev) #A/cm2
+nm2eV=con.h * con.c / con.e * 1e9   #1239.852 from Igor
+JCONST=(1000/100/100/nm2eV) #mA/cm2
+DBWVL_PREFIX = 2. * np.pi * con.c * con.e / 100 / 100 #A/cm2
 
 # standard data
 path = '../data/'
@@ -36,6 +38,73 @@ AM15G = dfrefspec['global'].to_numpy(dtype=np.float64, copy=True) # 1000.5 W/m2
 AM15D = dfrefspec['direct'].to_numpy(dtype=np.float64, copy=True) # 900.2 W/m2
 refspec = dfrefspec.to_numpy(dtype=np.float64, copy=True)  #all three reference spectra
 
+def JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False):
+    '''
+    calculate detailed-balance reverse saturation current 
+    from EQE vs xEQE
+    xEQE in nm, can optionally use (start, step) for equally spaced data
+    debug on bplot
+    '''
+    Vthlocal = Vth(TC) #kT
+    EQE = np.array(EQE)  #ensure numpy
+    if EQE.ndim == 1: #1D EQE[lambda]
+        nQlams,  = EQE.shape
+        njuncs = 1        
+    elif EQE.ndim == 2:  #2D EQE[lambda, junction]
+        nQlams, njuncs = EQE.shape
+    else:
+        return 'dims in EQE:' + str(EQE.ndim)
+
+    Eguess = np.array([Eguess] * njuncs)
+    
+    if len(xEQE) == 2: # evenly spaced x-values (start, stop)
+        start, stop = xEQE
+        #stop =  start + step * (nQlams - 1)
+        #xEQE, step = np.linspace(start, stop, nQlams, dtype=np.float64, retstep=True)
+        xEQE= np.linspace(start, stop, nQlams, dtype=np.float64)
+    else:   # arbitrarily spaced x-values
+        xEQE = np.array(xEQE, dtype=np.float64)
+        start = min(xEQE)
+        stop = max(xEQE)
+        #step = xEQE[1]-xEQE[0]  #first step
+
+    if xEQE.ndim != 1: # need 1D with same length as EQE(lam)
+        return 'dims in xEQE:' + str(xEQE.ndim) + '!=1'
+    elif len(xEQE) != nQlams:
+        return 'nQlams:' + str(len(xEQE)) + '!='+ str(nQlams)
+
+    Egvect = np.vectorize(EgFromJdb)
+    EkT = nm2eV / Vthlocal / xEQE
+    blackbody = np.expand_dims(DBWVL_PREFIX / (xEQE*1e-9)**4 / np.expm1(EkT) , axis=1)
+    
+    for count in range(10): 
+        nmfilter = nm2eV/(Eguess - Vthlocal * kTfilter) #MD [652., 930.]
+        if njuncs == 1:
+            EQEfilter = np.expand_dims(EQE.copy(), axis=1)
+        else:
+            EQEfilter = EQE.copy()
+            
+        for i, lam in enumerate(xEQE):
+            EQEfilter[i,:] *= (lam < nmfilter) #zero EQE about nmfilter      
+           
+        DBintegral = blackbody * EQEfilter      
+        Jdb = np.trapz(DBintegral, x=(xEQE*1e-9), axis=0)  
+        Egnew = Egvect(TC, Jdb)
+        if bplot: print(Egnew, max((Egnew-Eguess)/Egnew))
+        if np.amax((Egnew-Eguess)/Egnew) < 1e-6:
+            break
+        else: 
+            Eguess=Egnew
+     
+    if bplot:
+        efig, eax = plt.subplots()
+        eax.plot(xEQE, DBintegral[:,0], c='blue', lw=2, marker='.')
+        if njuncs > 1:
+            reax = eax.twinx() #right axis
+            reax.plot(xEQE, DBintegral[:,1], c='red', lw=2, marker='.') 
+
+    return Jdb, Egnew
+    
 def JintMD(EQE, xEQE, Pspec, xspec=wvl):
     '''
     calculate total power of spectra and Jsc of each junction from QE
@@ -108,9 +177,9 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
     EQEinterp = interp1d(xEQE, EQE, axis=0, fill_value=0) # interpolate alone axis=0
     Jintegral = np.zeros((nSlams, nspecs, (njuncs+1)), dtype=np.float64) #3D array
     if njuncs == 1:
-        EQEfine = np.expand_dims((EQEinterp(xrange) * xrange), axis=1) * Jconst  # lambda*EQE(lambda)[lambda,1]
+        EQEfine = np.expand_dims((EQEinterp(xrange) * xrange), axis=1) * JCONST  # lambda*EQE(lambda)[lambda,1]
     else:
-        EQEfine = EQEinterp(xrange) * xrange[:,np.newaxis] * Jconst # lambda*EQE(lambda)[lambda,junc]
+        EQEfine = EQEinterp(xrange) * xrange[:,np.newaxis] * JCONST # lambda*EQE(lambda)[lambda,junc]
 
     #print(xrange.shape, EQEfine.shape, EQE.shape, Pspec.shape, Jintegral.shape)
     if nspecs == 1:
