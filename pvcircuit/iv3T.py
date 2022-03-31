@@ -735,8 +735,10 @@ class IV3T(object):
         yy = getattr(self,ykey) * scale # 2D
         zz = getattr(self,zkey) * zscale # 2D
         extent = [np.nanmin(xx), np.nanmax(xx), np.nanmin(yy), np.nanmax(yy)]
+        lstep *=  np.ceil(np.nanmax(zz)/10./lstep)
         Pmax = np.ceil(np.nanmax(zz) / lstep) * lstep
-        levels = [ll*lstep for ll in range(20) if ll*lstep <= Pmax]  # for contours
+        print(lstep, Pmax)
+        levels = [ll*lstep for ll in range(10) if ll*lstep <= Pmax]  # for contours
         
         #print(self.name) # tag this instance
         handles = []

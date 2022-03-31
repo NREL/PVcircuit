@@ -731,7 +731,7 @@ class Tandem3T(object):
         
         return sp
         
-    def controls(self, Vdata3T, Idata3T, hex=False, meastype='CZ'):
+    def controls(self, Vdata3T=None, Idata3T=None, hex=False, meastype='CZ'):
         '''
         use interactive_output for GUI in IPython
         '''
@@ -967,6 +967,8 @@ class Tandem3T(object):
         in_3Tbut.on_click(on_3Treplot)  #replot  
         in_Vbut.on_click(on_3Treplot)  #replot some  
         in_Mbut.on_click(on_3Treplot)  #replot some  
+        
+        in_Mbut.click()
         
         ui = widgets.VBox([ToutBox, VoutBox, tand_ui, junc_ui])       
         self.ui = ui
