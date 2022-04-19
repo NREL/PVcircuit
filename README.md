@@ -503,9 +503,9 @@ Plot 2D IV3T object zkey(xkey,ykey) as image if evenly spaced or randomly spaced
 ### IV3T.addpoints(ax, xkey, ykey, \**kwargs)
 Plot IV3T points or lines onto existing axes
 
-## QE Analysis
+## QE Analysis Functions
 
-### qeanalysis.JintMD(EQE, xEQE, Pspec, xspec=wvl)
+### qe.JintMD(EQE, xEQE, Pspec, xspec=wvl)
 calculate total power of spectra and Jsc of each junction from multi-dimentional EQE
 - integrate multidimentional QE(lambda)(junction) times MD reference spectra Pspec(lambda)(ispec)
 - external quantum efficiency QE[unitless] x-units = nm, 
@@ -518,13 +518,13 @@ output:
 - first column (0) is total power=int(Pspec)
 - second column (1) is first Jsc = int(Pspec*QE[0]*lambda)
 
-### qeanalysis.JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False)
+### qe.JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False)
 calculate detailed-balance reverse saturation current from EQE vs xEQE
 - xEQE[=]nm
 - can optionally use (start, step) for equally spaced data
 - debug on bplot
 
-### qeanalysis.JdbFromEg(TC,Eg,dbsides=1.,method=None)
+### qe.JdbFromEg(TC,Eg,dbsides=1.,method=None)
 return the detailed balance dark current (see Geisz EL&LC paper, King EUPVSEC)
 assuming a square EQE
 - Eg[=]eV
@@ -536,7 +536,7 @@ optional parameters
 - dbsides:    single-sided->1.  bifacial->2.
 
 
-### qeanalysis.EgFromJdb(TC, Jdb, Eg=1.0, eps=1e-6, itermax=100, dbsides=1.):
+### qe.EgFromJdb(TC, Jdb, Eg=1.0, eps=1e-6, itermax=100, dbsides=1.):
 return the bandgap from the Jdb
 - assuming a square EQE
 - iterates using gammaInc(3,x)=2*exp(-x)*(1+x+x^2/2)
