@@ -26,7 +26,7 @@ import pvcircuit.junction as junction
 import pvcircuit.multi2T as multi2T
 import pvcircuit.iv3T as iv3T
 import pvcircuit.tandem3T as tandem3T
-import pvcircuit.qeanalysis as qeanalysis
+import pvcircuit.qe as qe
 
 # expose constructors to package's top level
 Junction = junction.Junction
@@ -36,8 +36,9 @@ Tandem3T = tandem3T.Tandem3T
 TK = junction.TK
 Vth = junction.Vth
 Jdb = junction.Jdb
-JdbFromEg = qeanalysis.JdbFromEg
-EgFromJdb = qeanalysis.EgFromJdb
+JdbFromEg = qe.JdbFromEg
+EgFromJdb = qe.EgFromJdb
+datapath = qe.datapath
 
 #
 VERSION = 0.02
@@ -49,4 +50,4 @@ __email__ = u'john.geisz@nrel.gov'
 __url__ = u'https://github.nrel.gov/jgeisz/PVcircuit'
 __version__ = VERSION
 __release__ = 'development'
-__all__ = ['junction', 'multi2T', 'iv3T', 'tandem3T']
+__all__ = ['junction', 'multi2T', 'iv3T', 'tandem3T', 'qe']

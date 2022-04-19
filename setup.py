@@ -3,12 +3,12 @@ from setuptools import setup, find_packages
 # Setting up
 setup(
         name="PVcircuit", 
-        version='0.0.2',
+        version='0.0.3',
         author="John Geisz",
         author_email="<john.geiz@NREL.gov>",
         description='Multijunction PV circuit model',
         long_description='Optoelectronic model of tandem and multijunction solar cells',
-        url='https://github.nrel.gov/Tandems/PVcircuit',
+        url='https://github.com/NREL/PVcircuit',
         license='LICENSE.txt',
         packages=find_packages(),
         install_requires=['numpy>=1.13.3', 

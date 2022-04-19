@@ -19,6 +19,7 @@ import scipy.constants as con   #physical constants
 import ipywidgets as widgets
 from IPython.display import display
 from pvcircuit.junction import *
+import os, sys
 
 # constants
 k_q = con.k/con.e
@@ -29,9 +30,11 @@ nm2eV=con.h * con.c / con.e * 1e9   #1239.852 from Igor
 JCONST=(1000/100/100/nm2eV) #mA/cm2
 DBWVL_PREFIX = 2. * np.pi * con.c * con.e / 100 / 100 #A/cm2
 
+
 # standard data
-path = '../data/'
-dfrefspec = pd.read_csv(path+'ASTMG173.csv', index_col=0, header=2)
+pvcpath = os.path.dirname(__file__)  # Data files here
+datapath = pvcpath.replace('/pvcircuit','/data/')
+dfrefspec = pd.read_csv(datapath+'ASTMG173.csv', index_col=0, header=2)
 wvl=dfrefspec.index.to_numpy(dtype=np.float64, copy=True)
 AM0 = dfrefspec['space'].to_numpy(dtype=np.float64, copy=True)  # 1348.0 W/m2
 AM15G = dfrefspec['global'].to_numpy(dtype=np.float64, copy=True) # 1000.5 W/m2
@@ -114,7 +117,7 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
     integrate multidimentional QE(lambda)(junction) times MD reference spectra Pspec(lambda)(ispec)
     external quantum efficiency QE[unitless] x-units = nm, 
     reference spectra Pspec[W/m2/nm] x-units = nm
-    optionally Pspec as string 'space', 'global', or 'direct'
+    optionally Pspec as string 'space', 'global', 'direct' or '' for all three
     xEQE in nm, can optionally use (start, step) for equally spaced data
     default x values for Pspec from wvl
     '''

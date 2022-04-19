@@ -690,8 +690,8 @@ class Multi2T(object):
             lfig, lax = plt.subplots()
             if self.njunc > 1:
                 for junc in range(self.njunc):  #plot Vdiode of each junction
-                    lax.plot(Vdarkmid[:, junc], Idark*scale, marker='.',ls='', label='djunction'+str(junc))
-                    lax.plot(Vlightmid[:, junc], Ilight*scale, marker='.',ls='', label='ljunction'+str(junc))
+                    lax.plot(Vdarkmid[:, junc], Idark*scale, marker='',ls='-', label='djunction'+str(junc))
+                    lax.plot(Vlightmid[:, junc], Ilight*scale, marker='',ls='-', label='ljunction'+str(junc))
                 
             lax.plot(Vdark, Idark*scale, lw=2, c='black', label='dark')  # dark IV curve
             lax.plot(Vlight, Ilight*scale, lw=2, c='black', label='light')  #IV curve         
