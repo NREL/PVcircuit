@@ -20,6 +20,7 @@ Based on publications:
 - ipywidgets
 - ipympl
 - parse
+- tandems from https://github.com/Ripalda/Tandems
 
 # Junction( ) Class
 A single *Junction* that can be combined together to form tandem and multijunction solar cells.
@@ -340,13 +341,27 @@ Triple Isc of 3T tandem returns IV3T object.
         (Iro, Izo, Ito ) of (Vzt = 0, Vrz = 0, Vtr = 0) 
         
 ### Tandem3T.MPP(pnts=31, VorI= 'I', less = 2., bplot=False)
-Iteratively find MPP from lines as experimentally done. Varying I is faster than varying V but initial guess is not as good.
+Iteratively find unconstrained MPP from lines as experimentally done. Varying I is faster than varying V but initial guess is not as good.
 
 *returns IV3T object with one point*
 
 'less' must be > 1.0. If FF is really bad, may need larger 'less'
 
 Use 'bplot' for debugging information
+
+### Tandem3T.VM(self, bot, top, pnts=11)
+Create voltage matched (VM) constrained line for tandem3T.
+Focus iteratively on the MPP of the constrained line.
+
+'bot' bottom subcells in parallel with 'top' top subcells
+
+*returns two IV3T objects - the constrained line and MPP* 
+
+### Tandem3T.CM(self, pnts=11)
+Create current matched (CM) constrained line for tandem3T.
+Focus iteratively on the MPP of the constrained line.
+
+*returns two IV3T objects - the constrained line and MPP* 
 
 ### Tandem3T.VI0(VIname, meastype='CZ')
 Solve for mixed (V=0, I=0) zero power points using separate diodes for quick solutions
@@ -515,8 +530,8 @@ calculate total power of spectra and Jsc of each junction from multi-dimentional
 - default x values for Pspec from wvl
 
 output:
-- first column (0) is total power=int(Pspec)
-- second column (1) is first Jsc = int(Pspec*QE[0]*lambda)
+- Jsc[junc,spectrum] = int(Pspec[spectrum]*EQE[junc]*lambda)
+- total power=int(Pspec) if EQE is None
 
 ### qe.JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False)
 calculate detailed-balance reverse saturation current from EQE vs xEQE
@@ -546,3 +561,88 @@ optional parameters:
 - eps=0.001    #tolerance
 - itermax=100 #maximum iterations
 - dbsides=1.  #bifacial->2.
+
+## EY.TMY( ) Class
+Energy yield (EY) typical meterological year (TMY) at a specific location
+
+Currently imports US proxy spectra from https://github.com/Ripalda/Tandems
+
+Expects 'Tandems' github to be parallel to 'PVcircuit' github
+
+## TMY.attributes
+### TMY.name
+*string* Name of this TMY
+
+### TMY.tilt
+*boolean* tilt=True, axis=False
+
+### TMY.longitude
+*scalar*
+
+### TMY.latitude
+*scalar*
+
+### TMY.altitude
+*scalar*
+
+### TMY.zone
+*scalar*
+
+### TMY.DayTime
+*scalar*
+
+### TMY.Irradiance
+*numpy.array* Spectral irradiance each spectrum as a function of wavelength(wvl) 2D [nspecs][nlambda]
+
+### TMY.Temp
+*numpy.array* Ambient temperature associate with each spectrum 1D [nspecs]
+
+### TMY.TempCell
+*numpy.array* Cell temperature associate with each spectrum 1D [nspecs]
+
+### TMY.Wind
+*numpy.array* Wind speed associate with each spectrum 1D [nspecs]
+
+### TMY.NTime
+*numpy.array* Fractional time associate with each spectrum 1D [nspecs]
+
+### TMY.Angle
+*numpy.array* Angle associate with each spectrum 1D [nspecs]
+
+### TMY.AngleMOD
+*numpy.array* Angle modifier factor associate with each spectrum 1D [nspecs]
+
+### TMY.SpecPower
+*numpy.array* Optical power associate with each spectrum 1D [nspecs]
+
+### TMY.RefPower
+*numpy.array* Optical power associate with each reference spectrum 1D [3]
+
+### TMY.inPower 
+*numpy.array* (SpecPower * NTime) associate with each spectrum 1D [nspecs]
+
+### TMY.YearlyEnergy
+*scalar* Yearly Optical Energy Resource [kWh/m2/yr]
+
+## TMY.methods()
+
+### TMY.cellcurrents(self,EQE,xEQE)
+Subcell currents and Egs under TMY for a given EQE[junc] as a function of xEQE
+
+Creates *numpy.array* for subsequent calculations
+- self.JscSTCs[refspec,junc]
+- self.Jscs[spec,junc]
+- self.Eg[junc]
+
+### TMY.cellpower(self,model,oper,iref=1)
+Max power of a cell under self TMY.
+
+Cell model can be 'Multi2T' or 'Tandem3T'
+-'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
+
+self.Jscs and self.Egs must be calculate first using *TMY.cellcurrents*
+
+Outputs 
+- EY energy yield of cell [kWh/m2/yr]
+- EYeff energy yield efficiency = EY/YearlyEnergy
+- STCeff efficiency of cell under reference spectrum (space,global,direct)
