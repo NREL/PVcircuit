@@ -20,6 +20,7 @@ Based on publications:
 - ipywidgets
 - ipympl
 - parse
+- tandems from https://github.com/Ripalda/Tandems
 
 # Junction( ) Class
 A single *Junction* that can be combined together to form tandem and multijunction solar cells.
