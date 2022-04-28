@@ -64,7 +64,7 @@ class Tandem3T(object):
         #attr_dict = self.__dict__.items()
         #print(attr_list)
         
-        strout=self.name + ": <tandem.Tandem3T class>"
+        strout=self.name + ": <pvcircuit.tandem3T.Tandem3T class>"
         strout += '\nT = {0:.1f} C, Rz= {1:g} Ω cm2, Rt= {2:g} Ω cm2, Rr = {3:g} Ω cm2'\
             .format(self.TC,self.Rz,self.top.Rser,self.bot.Rser)
         strout += '\n\n'+str(self.top)
@@ -469,6 +469,97 @@ class Tandem3T(object):
         #return (temp3T.Iro[0], temp3T.Izo[0], temp3T.Ito[0])
         return temp3T
  
+    def VM(self, bot, top, pnts=11):
+        '''
+        create VM constrained line for tandem3T
+        '''
+        sbot=str(bot)
+        stop=str(top)
+        name = 'VM' + sbot + stop
+        meastype = 'CZ'
+        Voc3 = self.Voc3(meastype)  # find triple Voc point
+        ln = IV3T(name=name, meastype = meastype)
+        lnout = IV3T(name=name, meastype = meastype)
+        sign = np.sign(Voc3.Vzt[0]/Voc3.Vrz[0])
+        x0 = 0
+        if (abs(Voc3.Vzt[0]) * top > abs(Voc3.Vrz[0]) * bot):
+            yconstraint = 'x * ' + stop + ' / ' + sbot + ' * (' + str(sign) + ')'
+            xkey = 'Vzt'
+            x1 = Voc3.Vzt[0]
+            ykey = 'Vrz'
+        else:
+            yconstraint = 'x * ' + sbot + ' / ' + stop + '* (' + str(sign) + ')'
+            xkey = 'Vrz'
+            x1 = Voc3.Vrz[0]
+            ykey = 'Vzt'
+        
+        for i in range(4):  #focus on MPP
+            ln.line(xkey, x0, x1, pnts, ykey, yconstraint) 
+            ln.name = name+'_'+str(i)    
+            self.I3Trel(ln)  
+            lnout.append(ln)
+            xln = getattr(ln, xkey)
+            nmax = np.argmax(ln.Ptot)
+            x0 = xln[max(0,(nmax-1))]
+            x1 = xln[min((nmax+1),(pnts-1))]
+            #print(ln)
+            #print(nmax, x0, x1, ln.Ptot[nmax], ln.name)  
+ 
+        #single MPP point in IV3T space
+        MPP = IV3T(name = 'MPP' + sbot + stop, meastype = meastype, shape=1)
+        MPP.Vzt[0] = ln.Vzt[nmax]
+        MPP.Vrz[0] = ln.Vrz[nmax]
+        MPP.kirchhoff(['Vzt', 'Vrz'])
+        self.I3Trel(MPP)
+        
+        #NOTE: should reorder lnout by xkey for nice line on plot
+          
+        return lnout, MPP
+
+    def CM(self, pnts=11):
+        '''
+        create CM constrained line for tandem3T
+        '''
+        name = 'CM'
+        meastype = 'CZ'
+        Isc3 = self.Isc3(meastype)  # find triple Voc point
+        ln = IV3T(name=name, meastype = meastype)
+        lnout = IV3T(name=name, meastype = meastype)
+        sign = np.sign(Isc3.Iro[0]/Isc3.Ito[0])
+        x0 = 0
+        yconstraint = 'x'+ ' * (' + str(sign) + ')'
+        if (abs(Isc3.Iro[0]) > abs(Isc3.Ito[0]) ):
+            xkey = 'Ito'
+            x1 = Isc3.Ito[0]
+            ykey = 'Iro'
+        else:
+            xkey = 'Iro'
+            x1 = Isc3.Iro[0]
+            ykey = 'Ito'
+        
+        for i in range(4):  #focus on MPP
+            ln.line(xkey, x0, x1, pnts, ykey, yconstraint)     
+            ln.name = name+'_'+str(i)    
+            self.V3T(ln)  
+            lnout.append(ln)
+            xln = getattr(ln, xkey)
+            nmax = np.argmax(ln.Ptot)
+            x0 = xln[max(0,(nmax-1))]
+            x1 = xln[min((nmax+1),(pnts-1))]
+            #print(ln)
+            #print(nmax, x0, x1, ln.Ptot[nmax], ln.name)  
+ 
+        #single MPP point in IV3T space
+        MPP = IV3T(name = 'MPPCM' , meastype = meastype, shape=1)
+        MPP.Iro[0] = ln.Iro[nmax]
+        MPP.Ito[0] = ln.Ito[nmax]
+        MPP.kirchhoff(['Iro', 'Ito'])
+        self.V3T(MPP)
+ 
+        #NOTE: should reorder lnout by xkey for nice line on plot
+                  
+        return lnout, MPP
+    
     def MPP(self, pnts=31, VorI= 'I', less = 2., bplot=False):
         '''
         iteratively find MPP from lines

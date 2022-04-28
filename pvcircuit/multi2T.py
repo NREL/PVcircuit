@@ -100,7 +100,7 @@ class Multi2T(object):
         format concise description of Multi2T object
         '''
          
-        strout=self.name + ": <tandem.Multi2T class>"
+        strout=self.name + ": <pvcircuit.multi2T.Multi2T class>"
     
         strout += '\nT = {0:.1f} C, Rs2T= {1:g} Ω cm2'\
             .format(self.TC,self.Rs2T)

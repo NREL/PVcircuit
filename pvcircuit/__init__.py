@@ -27,6 +27,7 @@ import pvcircuit.multi2T as multi2T
 import pvcircuit.iv3T as iv3T
 import pvcircuit.tandem3T as tandem3T
 import pvcircuit.qe as qe
+import pvcircuit.EY as EY
 
 # expose constructors to package's top level
 Junction = junction.Junction
@@ -40,8 +41,10 @@ JdbFromEg = qe.JdbFromEg
 EgFromJdb = qe.EgFromJdb
 datapath = qe.datapath
 
+TMY = EY.TMY
+
 #
-VERSION = 0.02
+VERSION = 0.03
 
 
 

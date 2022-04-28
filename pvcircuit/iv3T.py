@@ -106,7 +106,7 @@ class IV3T(object):
         
     def __str__(self):
         #   string description of IV3T object
-        strout=self.name + ": <tandem.IV3T class>"
+        strout=self.name + ": <pvcircuit.iv3T.IV3T class>"
         attr_list = dict(self.__dict__.items()).copy()  #all attributes
         nshape = len(str(self.shape))  # number letters in largest index string
         nnames = len(max(self.names, key=len)) #number of letters in larges names[i] string
@@ -383,7 +383,8 @@ class IV3T(object):
                     
         self.resize(newsize, fillname = iv3T.name)  #resize and flatten
         
-        for i in range(addmax):
+#        for i in range(addmax):
+        for i in range(len(iv3T.names)): #prevent out of range error
             if iv3T.names[i] :  #not null string
                 self.names[i+nmax] = iv3T.names[i]    #add names            
 

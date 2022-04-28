@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 This is the PVcircuit Package. 
-    pvcircuit.QEanalysis    # function for QE analysis
+    pvcircuit.qe    # functions for QE analysis
 """
 
 import math   #simple math
@@ -107,21 +107,32 @@ def JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False):
             reax.plot(xEQE, DBintegral[:,1], c='red', lw=2, marker='.') 
 
     return Jdb, Egnew
+
+def PintMD(Pspec, xspec=wvl):
+    #optical power of spectrum over full range
+    return JintMD(None, None, Pspec, xspec)
     
 def JintMD(EQE, xEQE, Pspec, xspec=wvl):
     '''
-    calculate total power of spectra and Jsc of each junction from QE
-    first column (0) is total power=int(Pspec)
-	second column (1) is first Jsc = int(Pspec*QE[0]*lambda)
-
-    integrate multidimentional QE(lambda)(junction) times MD reference spectra Pspec(lambda)(ispec)
-    external quantum efficiency QE[unitless] x-units = nm, 
+    integrate over spectrum or spectra
+    if EQE is None -> calculate Power in [W/m2]
+        total power=int(Pspec) over xEQE range
+    else             -> caluculate J = spectra * lambda * EQE(lambda)
+        Jsc = int(Pspec*QE[0]*lambda) in [mA/cm2]
+        EQE optionally scalar for constant over xEQE range
+        integrate over full spectrum is xEQE is None
+    
+    integrate multidimentional EQE(lambda)(junction) times MD reference spectra Pspec(lambda)(ispec)
+    external quantum efficiency EQE[unitless] x-units = nm, 
     reference spectra Pspec[W/m2/nm] x-units = nm
     optionally Pspec as string 'space', 'global', 'direct' or '' for all three
-    xEQE in nm, can optionally use (start, step) for equally spaced data
+    xEQE in nm, can optionally 
+        use (start, step) for equally spaced data
+        use None for same as xspec
     default x values for Pspec from wvl
     '''
     
+    #check spectra input
     if type(Pspec) is str: # optional string space, global, direct
         if Pspec in dfrefspec.columns:
             Pspec = dfrefspec[Pspec].to_numpy(dtype=np.float64, copy=True)
@@ -138,8 +149,16 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
     else:
         return 'dims in Pspec:' + str(Pspec.ndim)
         
+    #check EQE input
     EQE = np.array(EQE)  #ensure numpy
-    if EQE.ndim == 1: #1D EQE[lambda]
+    if EQE.ndim == 0: #scalar or None
+        if np.any(EQE): 
+            nQlams=1    #scalar -> return current
+            njuncs=1
+        else:
+            nQlams=1    #None or False -> return power
+            njuncs=0
+    elif EQE.ndim == 1: #1D EQE[lambda]
         nQlams,  = EQE.shape
         njuncs = 1
     elif EQE.ndim == 2:  #2D EQE[lambda, junction]
@@ -147,16 +166,21 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
     else:
         return 'dims in EQE:' + str(EQE.ndim)
     
-    if len(xEQE) == 2: # evenly spaced x-values (start, stop)
-        start, stop = xEQE
-        #stop =  start + step * (nQlams - 1)
-        #xEQE, step = np.linspace(start, stop, nQlams, dtype=np.float64, retstep=True)
-        xEQE= np.linspace(start, stop, nQlams, dtype=np.float64)
-    else:   # arbitrarily spaced x-values
-        xEQE = np.array(xEQE, dtype=np.float64)
+    #check x range input
+    xEQE = np.array(xEQE, dtype=np.float64)
+    if xEQE.ndim == 0: #scalar or None
+        xEQE = xspec    #use spec range if no EQE range
+    if xEQE.ndim == 1: #1D
+        nxEQE,  = xEQE.shape 
         start = min(xEQE)
-        stop = max(xEQE)
-        #step = xEQE[1]-xEQE[0]  #first step
+        stop = max(xEQE) 
+        if nxEQE == 2: # evenly spaced x-values (start, stop)
+            xEQE= np.linspace(start, stop, max(nQlams,2), dtype=np.float64)
+    else:
+        return 'dims in xEQE:' + str(xEQE.ndim)
+           
+    if nQlams == 1:
+        EQE = np.full_like(xEQE,EQE)
         
     if xspec.ndim != 1: # need 1D with same length as Pspec(lam)
         return 'dims in xspec:' + str(xspec.ndim) + '!=1'
@@ -165,10 +189,14 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
 
     if xEQE.ndim != 1: # need 1D with same length as EQE(lam)
         return 'dims in xEQE:' + str(xEQE.ndim) + '!=1'
+    elif nQlams == 1:
+        pass
     elif len(xEQE) != nQlams:
         return 'nQlams:' + str(len(xEQE)) + '!='+ str(nQlams)
         
     #find start and stop index  of nSlams
+    n0=0
+    n1=nSlams-1
     for i, lam in enumerate(xspec):
         if lam <= min(start,stop):
             n0 = i
@@ -177,24 +205,30 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
         else:
             break
     xrange = xspec[n0:n1+1] # range of xspec values within xEQE range
-    EQEinterp = interp1d(xEQE, EQE, axis=0, fill_value=0) # interpolate alone axis=0
-    Jintegral = np.zeros((nSlams, nspecs, (njuncs+1)), dtype=np.float64) #3D array
-    if njuncs == 1:
-        EQEfine = np.expand_dims((EQEinterp(xrange) * xrange), axis=1) * JCONST  # lambda*EQE(lambda)[lambda,1]
-    else:
-        EQEfine = EQEinterp(xrange) * xrange[:,np.newaxis] * JCONST # lambda*EQE(lambda)[lambda,junc]
-
-    #print(xrange.shape, EQEfine.shape, EQE.shape, Pspec.shape, Jintegral.shape)
-    if nspecs == 1:
-        Jintegral[:,0,0] = Pspec.copy() #for Ptot
-    else:
-        Jintegral[:,:,0] = Pspec.copy() #for Ptot
+    nrange = abs(n1+1-n0)
+    if njuncs == 0: #calculate power over xrange
+        if nspecs == 1:
+            Jintegral = Pspec.copy()[n0:n1+1] #for Ptot
+        else:
+            Jintegral = Pspec.copy()[n0:n1+1,:] #for Ptot
         
-    for ijunc in range(1,(njuncs+1)):
-        Jintegral[n0:n1+1,:,ijunc] = Jintegral[n0:n1+1,:,0] * EQEfine[:, np.newaxis, ijunc-1]
-        pass
+    else: #calculate J over xrange
+        #print(xrange.shape, xEQE.shape, EQE.shape, Pspec.shape)
+        EQEinterp = interp1d(xEQE, EQE, axis=0, fill_value=0) # interpolate along axis=0
+        Jintegral = np.zeros((nrange, nspecs, njuncs), dtype=np.float64) #3D array
+        if njuncs == 1:
+            EQEfine = np.expand_dims((EQEinterp(xrange) * xrange), axis=1) * JCONST  # lambda*EQE(lambda)[lambda,1]
+        else:
+            EQEfine = EQEinterp(xrange) * xrange[:,np.newaxis] * JCONST # lambda*EQE(lambda)[lambda,junc]
+        for ijunc in range(0,njuncs):
+            if nspecs == 1:
+                Jintegral[:,0,ijunc] = Pspec.copy()[n0:n1+1] #for Ptot
+            else:
+                Jintegral[:,:,ijunc] = Pspec.copy()[n0:n1+1,:] #for Ptot
+            Jintegral[:,:,ijunc] *= EQEfine[:, np.newaxis, ijunc]
 
-    Jint = np.trapz(Jintegral, x=xspec, axis=0)     
+    Jint = np.trapz(Jintegral, x=xrange, axis=0)     
+    #print(xrange.shape, EQEfine.shape, EQE.shape, Pspec.shape, Jintegral.shape)
     #print(nSlams, nspecs, njuncs, nQlams, start, stop, xspec[n0], xspec[n1], n0, n1)    
     return Jint
 

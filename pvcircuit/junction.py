@@ -112,7 +112,7 @@ class Junction(object):
         #attr_dict = self.__dict__.items()
         #print(attr_list)
         
-        strout = self.name+": <tandem.Junction class>"
+        strout = self.name+": <pvcircuit.junction.Junction class>"
                     
         strout += '\nEg = {0:.2f} eV, TC = {1:.1f} C' \
             .format(self.Eg, self.TC)
