@@ -20,6 +20,7 @@ Based on publications:
 - ipywidgets
 - ipympl
 - parse
+- num2words
 - tandems 
 > git clone https://github.com/Ripalda/Tandems ~/Documents/GitHub/Tandems
 > 
