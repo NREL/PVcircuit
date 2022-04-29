@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 # Setting up
 setup(
         name="PVcircuit", 
-        version='0.0.3',
+        version='0.0.4',
         author="John Geisz",
         author_email="<john.geiz@NREL.gov>",
         description='Multijunction PV circuit model',
@@ -17,5 +17,6 @@ setup(
                           'scipy>=1.0.0',
                           'ipywidgets>=7.6.5',
                           'ipympl>=0.7.0',
-                          'pandas>=1.0'],
+                          'pandas>=1.0', 
+                          'tandems>=0.989'],
 )

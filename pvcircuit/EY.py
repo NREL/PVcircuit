@@ -43,6 +43,14 @@ tclst_axis.sort()
 clst_tilt.sort()
 tclst_tilt.sort()
 
+def VMloss(type3T, bot, top, ncells):
+    # calculates approximate loss factor for VM strings of 3T tandems
+    if type3T == 'r':
+        endloss = (max(bot,top) - 1)
+    elif type3T == 's':
+        endloss = (bot + top - 1)
+    lossfactor = 1 - endloss / ncells
+    return lossfactor
     
 class TMY(object):
     '''
@@ -102,11 +110,6 @@ class TMY(object):
   
     def cellcurrents(self,EQE,xEQE):
         # subcell currents and Egs and under self TMY for a given EQE
-        #1 calculate Jsc from EQE for each spectrum
-        #2 calculate Pmpp of tandem at each Jsc(spectrum), tempcell(spectrum)
-        #3 outPower(spectrum) = Pmpp(spectrum) * NTime
-        #4 EY = sum(outPower)*DayTime*365.25/1000	//kWh/m2/yr
-        #5 EYeff = EY / OpticalYearlyEnergy
            
         self.JscSTCs = JintMD(EQE, xEQE, pvc.qe.refspec)/1000.
         self.Jscs = JintMD(EQE, xEQE, self.Irradiance) /1000. 
@@ -114,26 +117,50 @@ class TMY(object):
         
     def cellpower(self,model,oper,iref=1):
         # max power of a cell under self TMY
-        # cell model can be 'Multi2T' or 'Tandem3T'
         # self.Jscs and self.Egs must be calculate first using cellcurrents
+        #Inputs
+        # cell 'model' can be 'Multi2T' or 'Tandem3T'
+        #'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
         # iref = 0 -> space
         # iref = 1 -> global
         # iref = 2 -> direct
+        #Outputs 
+        #- EY energy yield of cell [kWh/m2/yr]
+        #- EYeff energy yield efficiency = EY/YearlyEnergy
+        #- STCeff efficiency of cell under reference spectrum (space,global,direct)
         self.outPower = self.inPower.copy() #initialize
         if isinstance(model,pvc.multi2T.Multi2T):
             T=2
+            type3T = '2T'
         elif isinstance(model,pvc.tandem3T.Tandem3T):
             T=3
+            if model.top.pn == model.bot.pn:
+                type3T = 'r'
+            else:
+                type3T = 's'
+        else:
+            return 'unknown model' + type(model)
+
         for i in range(len(self.outPower)):
             if T == 2:
                 model.j[0].set(Eg=self.Egs[0], Jext=self.Jscs[i,0], TC=self.TempCell[i])
                 model.j[1].set(Eg=self.Egs[1], Jext=self.Jscs[i,1], TC=self.TempCell[i])                
-                mpp_dict=model.MPP()
+                mpp_dict=model.MPP() #oper ignored for 2T
                 Pmax = mpp_dict['Pmp']
             elif T == 3:
                 model.top.set(Eg=self.Egs[0], Jext=self.Jscs[i,0], TC=self.TempCell[i])
                 model.bot.set(Eg=self.Egs[1], Jext=self.Jscs[i,1], TC=self.TempCell[i])
-                iv3T = model.MPP()
+                if oper == 'MPP':
+                    iv3T = model.MPP()
+                elif oper == 'CM':
+                    ln, iv3T = model.CM()
+                elif oper[:2] == 'VM':               
+                    bot, top = parse('VM{:1d}{:1d}',oper)
+                    #print(bot, top)
+                    ln, iv3T = model.VM(bot,top)
+                else:
+                    print(oper+' not valid')
+                    iv3T.Ptot[0] = 0
                 Pmax = iv3T.Ptot[0]
             self.outPower[i] = Pmax * self.NTime[i] * 10000.
 
@@ -142,21 +169,36 @@ class TMY(object):
 
         #calc reference spectra efficiency
         if iref == 0:
-            Tref = 28.
+            Tref = 28. #space
         else:
-            Tref = 25.
+            Tref = 25. #global and direct
             
-        if T == 2:
+        if T == 2:  #Multi2T
             model.j[0].set(Eg=self.Egs[0], Jext=self.JscSTCs[iref,0], TC=Tref)
             model.j[1].set(Eg=self.Egs[1], Jext=self.JscSTCs[iref,1], TC=Tref)                
-            mpp_dict=model.MPP()
+            mpp_dict=model.MPP() #oper ignored for 2T
             Pmax = mpp_dict['Pmp'] * 10.
-        elif T == 3:
+            ratio = 0.
+        elif T == 3:    #Tandem3T
             model.top.set(Eg=self.Egs[0], Jext=self.JscSTCs[iref,0], TC=Tref)
             model.bot.set(Eg=self.Egs[1], Jext=self.JscSTCs[iref,1], TC=Tref)
-            iv3T = model.MPP()
+            if oper == 'MPP':
+                iv3T = model.MPP()
+                ratio = -0.5
+            elif oper == 'CM':
+                ln, iv3T = model.CM()
+                ratio = 0.
+            elif oper[:2] == 'VM':               
+                bot, top = parse('VM{:1d}{:1d}',oper)
+                #print(bot, top)
+                ln, iv3T = model.VM(bot,top)
+                ratio = top/bot
+            else:
+                print(oper+' not valid')
+                iv3T.Ptot[0] = 0
+                ratio = np.nan
             Pmax = iv3T.Ptot[0] * 10.
             
         STCeff = Pmax * 1000. / self.RefPower[iref]
         
-        return EY, EYeff, STCeff
+        return EY, EYeff, STCeff, ratio, type3T

@@ -17,6 +17,7 @@ This module contains the classes:
     pvc.IV3T()       # many forms of operational conditions of 3T tandems
     pvc.Tandem3T()   # properties of a 3T tandem including 2 junctions
     pvc.Multi2T()    # properties of a 2T multijunction with arbitrary junctions
+    pvc.TMY()        # properties of a typical meterological year
 """
 
 import os
@@ -31,20 +32,25 @@ import pvcircuit.EY as EY
 
 # expose constructors to package's top level
 Junction = junction.Junction
-Multi2T = multi2T.Multi2T
-IV3T = iv3T.IV3T
-Tandem3T = tandem3T.Tandem3T
 TK = junction.TK
 Vth = junction.Vth
 Jdb = junction.Jdb
+
+Multi2T = multi2T.Multi2T
+IV3T = iv3T.IV3T
+Tandem3T = tandem3T.Tandem3T
+
+datapath = qe.datapath
 JdbFromEg = qe.JdbFromEg
 EgFromJdb = qe.EgFromJdb
-datapath = qe.datapath
+JdbMD = qe.JdbMD
+JintMD = qe.JintMD
+PintMD = qe.PintMD
 
 TMY = EY.TMY
 
 #
-VERSION = 0.03
+VERSION = 0.04
 
 
 
@@ -53,4 +59,4 @@ __email__ = u'john.geisz@nrel.gov'
 __url__ = u'https://github.nrel.gov/jgeisz/PVcircuit'
 __version__ = VERSION
 __release__ = 'development'
-__all__ = ['junction', 'multi2T', 'iv3T', 'tandem3T', 'qe']
+__all__ = ['junction', 'multi2T', 'iv3T', 'tandem3T', 'qe', 'EY']
