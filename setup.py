@@ -17,6 +17,7 @@ setup(
                           'scipy>=1.0.0',
                           'ipywidgets>=7.6.5',
                           'ipympl>=0.7.0',
-                          'pandas>=1.0', 
+                          'pandas>=1.0',
+                          'num2words>=0.5.10', 
                           'tandems>=0.989'],
 )

@@ -101,19 +101,23 @@ class TMY(object):
         self.Irradiance = np.array(spec.tolist()).transpose()  #transpose for integration with QE
 
         #calculate from spectral proxy data only
-        #self.SpecPower = np.trapz(self.Irradiance, x=wvl, axis=0) # optical power of each spectrum 
-        self.SpecPower = PintMD(self.Irradiance)   
-        self.RefPower = PintMD(pvc.qe.refspec)   
+        self.SpecPower = np.trapz(self.Irradiance, x=wvl, axis=0) # optical power of each spectrum 
+        self.RefPower = np.trapz(pvc.qe.refspec, x=wvl, axis=0) # optical power of each reference spectrum 
+        #self.SpecPower = PintMD(self.Irradiance)   
+        #self.RefPower = PintMD(pvc.qe.refspec)   
         self.TempCell = sandia_T(self.SpecPower, self.Wind, self.Temp)
         self.inPower = self.SpecPower * self.NTime  # spectra power*(fractional time)
         self.YearlyEnergy = self.inPower.sum() * self.DayTime * 365.25 / 1000  #kWh/m2/yr
   
-    def cellcurrents(self,EQE,xEQE):
-        # subcell currents and Egs and under self TMY for a given EQE
+    def cellcurrents(self,EQE):
+        # subcell currents and Egs and under self TMY for a given EQE class
            
-        self.JscSTCs = JintMD(EQE, xEQE, pvc.qe.refspec)/1000.
-        self.Jscs = JintMD(EQE, xEQE, self.Irradiance) /1000. 
-        Jdbs, self.Egs = JdbMD(EQE, xEQE, 25)  #Eg from EQE same at all temperatures 
+        #self.JscSTCs = JintMD(EQE, xEQE, pvc.qe.refspec)/1000.
+        #self.Jscs = JintMD(EQE, xEQE, self.Irradiance) /1000. 
+        #Jdbs, self.Egs = JdbMD(EQE, xEQE, 25)  #Eg from EQE same at all temperatures 
+        self.JscSTCs = EQE.Jint(pvc.qe.refspec)/1000.
+        self.Jscs = EQE.Jint(self.Irradiance) /1000. 
+        Jdbs, self.Egs = EQE.Jdb(25)  #Eg from EQE same at all temperatures 
         
     def cellpower(self,model,oper,iref=1):
         # max power of a cell under self TMY
@@ -201,4 +205,4 @@ class TMY(object):
             
         STCeff = Pmax * 1000. / self.RefPower[iref]
         
-        return EY, EYeff, STCeff, ratio, type3T
+        return ratio, type3T, EY, EYeff, STCeff

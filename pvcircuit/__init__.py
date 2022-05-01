@@ -46,6 +46,7 @@ EgFromJdb = qe.EgFromJdb
 JdbMD = qe.JdbMD
 JintMD = qe.JintMD
 PintMD = qe.PintMD
+EQE = qe.EQE
 
 TMY = EY.TMY
 
