@@ -470,8 +470,8 @@ class EQE(object):
         
         fig, ax = plt.subplots()
         for i in range(self.njuncs):
-            ax.plot(self.xEQE, self.corrEQE[:,i], lw=3, marker='', label=self.sjuncs[i])
             ax.plot(self.xEQE, self.rawEQE[:,i], lw=1, marker='', label='_'+self.sjuncs[i])
+            ax.plot(self.xEQE, self.corrEQE[:,i], lw=3, marker='', label=self.sjuncs[i])
         ax.legend()
         ax.set_ylim(0,1)      
         ax.set_xlim(math.floor(self.start/rnd2)*rnd2, math.ceil(self.stop/rnd2)*rnd2)

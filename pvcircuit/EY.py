@@ -51,6 +51,29 @@ def VMloss(type3T, bot, top, ncells):
         endloss = (bot + top - 1)
     lossfactor = 1 - endloss / ncells
     return lossfactor
+
+def VMlist(mmax):
+    # generate a list of VM configurations + 'MPP'=4T and 'CM'=2T
+    # mmax < 10 for formating reasons
+    
+    sVM = ['MPP','CM','VM11']
+    for m in range(mmax+1):
+        for n in range(1,m):
+            lcd = 2
+            if m/lcd == round(m/lcd) and n/lcd == round(n/lcd):
+                #print(n,m, 'skip2')
+                continue
+            lcd = 3
+            if m/lcd == round(m/lcd) and n/lcd == round(n/lcd):
+                #print(n,m, 'skip3')
+                continue
+            lcd = 5
+            if m/lcd == round(m/lcd) and n/lcd == round(n/lcd):
+                #print(n,m, 'skip5')
+                continue
+            #print(n,m, 'ok')
+            sVM.append('VM'+str(m)+str(n))
+    return sVM
     
 class TMY(object):
     '''
@@ -71,11 +94,11 @@ class TMY(object):
         self.tilt=tilt
         self.index = i
         self.name =  clst[i].split("/")[-1][:-13]
-        self.longitude = float(self.name.split('_')[0])
-        self.latitude = float(self.name.split('_')[1])
+        self.longitude = float(self.name.split('_')[1])
+        self.latitude = float(self.name.split('_')[0])
         self.altitude = float(self.name.split('_')[2])
         self.zone = float(self.name.split('_')[3])
-
+        
         d1 = np.load(clst[i])
         td1 = np.load(tclst[i])
 
@@ -119,7 +142,7 @@ class TMY(object):
         self.Jscs = EQE.Jint(self.Irradiance) /1000. 
         Jdbs, self.Egs = EQE.Jdb(25)  #Eg from EQE same at all temperatures 
         
-    def cellpower(self,model,oper,iref=1):
+    def cellpower(self,model,oper,iref=1,ncells=60):
         # max power of a cell under self TMY
         # self.Jscs and self.Egs must be calculate first using cellcurrents
         #Inputs
@@ -145,32 +168,6 @@ class TMY(object):
         else:
             return 'unknown model' + type(model)
 
-        for i in range(len(self.outPower)):
-            if T == 2:
-                model.j[0].set(Eg=self.Egs[0], Jext=self.Jscs[i,0], TC=self.TempCell[i])
-                model.j[1].set(Eg=self.Egs[1], Jext=self.Jscs[i,1], TC=self.TempCell[i])                
-                mpp_dict=model.MPP() #oper ignored for 2T
-                Pmax = mpp_dict['Pmp']
-            elif T == 3:
-                model.top.set(Eg=self.Egs[0], Jext=self.Jscs[i,0], TC=self.TempCell[i])
-                model.bot.set(Eg=self.Egs[1], Jext=self.Jscs[i,1], TC=self.TempCell[i])
-                if oper == 'MPP':
-                    iv3T = model.MPP()
-                elif oper == 'CM':
-                    ln, iv3T = model.CM()
-                elif oper[:2] == 'VM':               
-                    bot, top = parse('VM{:1d}{:1d}',oper)
-                    #print(bot, top)
-                    ln, iv3T = model.VM(bot,top)
-                else:
-                    print(oper+' not valid')
-                    iv3T.Ptot[0] = 0
-                Pmax = iv3T.Ptot[0]
-            self.outPower[i] = Pmax * self.NTime[i] * 10000.
-
-        EY = sum(self.outPower) * self.DayTime * 365.25/1000   #kWh/m2/yr
-        EYeff = EY / self.YearlyEnergy
-
         #calc reference spectra efficiency
         if iref == 0:
             Tref = 28. #space
@@ -187,22 +184,54 @@ class TMY(object):
             model.top.set(Eg=self.Egs[0], Jext=self.JscSTCs[iref,0], TC=Tref)
             model.bot.set(Eg=self.Egs[1], Jext=self.JscSTCs[iref,1], TC=Tref)
             if oper == 'MPP':
+                loss = 1.
                 iv3T = model.MPP()
                 ratio = -0.5
             elif oper == 'CM':
+                loss = 1.
                 ln, iv3T = model.CM()
                 ratio = 0.
             elif oper[:2] == 'VM':               
                 bot, top = parse('VM{:1d}{:1d}',oper)
+                loss = VMloss(type3T, bot, top, ncells)
                 #print(bot, top)
                 ln, iv3T = model.VM(bot,top)
-                ratio = top/bot
+                ratio = bot/top
             else:
                 print(oper+' not valid')
                 iv3T.Ptot[0] = 0
+                loss = 1.
                 ratio = np.nan
             Pmax = iv3T.Ptot[0] * 10.
             
         STCeff = Pmax * 1000. / self.RefPower[iref]
+
+        # calc EY, etc
+        for i in range(len(self.outPower)):
+            if T == 2:
+                model.j[0].set(Eg=self.Egs[0], Jext=self.Jscs[i,0], TC=self.TempCell[i])
+                model.j[1].set(Eg=self.Egs[1], Jext=self.Jscs[i,1], TC=self.TempCell[i])                
+                mpp_dict=model.MPP() #oper ignored for 2T
+                Pmax = mpp_dict['Pmp']
+            elif T == 3:
+                model.top.set(Eg=self.Egs[0], Jext=self.Jscs[i,0], TC=self.TempCell[i])
+                model.bot.set(Eg=self.Egs[1], Jext=self.Jscs[i,1], TC=self.TempCell[i])
+                if oper == 'MPP':
+                    iv3T = model.MPP()
+                elif oper == 'CM':
+                    ln, iv3T = model.CM()
+                elif oper[:2] == 'VM':               
+                    #bot, top = parse('VM{:1d}{:1d}',oper)
+                    #print(bot, top)
+                    ln, iv3T = model.VM(bot,top)
+                else:
+                    print(oper+' not valid')
+                    iv3T.Ptot[0] = 0
+                Pmax = iv3T.Ptot[0]
+            self.outPower[i] = Pmax * self.NTime[i] * 10000.
+
+        EY = sum(self.outPower) * self.DayTime * 365.25/1000   #kWh/m2/yr
+        EYeff = EY / self.YearlyEnergy
+
         
-        return ratio, type3T, EY, EYeff, STCeff
+        return ratio, type3T, EY, EYeff, STCeff, loss
