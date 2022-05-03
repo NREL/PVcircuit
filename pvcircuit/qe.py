@@ -357,7 +357,9 @@ class EQE(object):
         self.LCcorr() #calculate LC with zero etas
         
     def LCcorr(self):
-        #calculate LC corrected EQE
+        # calculate LC corrected EQE
+        # using procedure from 
+        # Steiner et al., IEEE PV, v3, p879 (2013)
         etas = self.etas
         raw = self.rawEQE
         for junc in range(self.njuncs):
@@ -459,10 +461,6 @@ class EQE(object):
         for ijunc in range(self.njuncs):
             Jintegral[:,:,ijunc] = Pspec[n0:n1+1,:] * EQEfine[:, np.newaxis, ijunc]
         return np.trapz(Jintegral, x=xrange, axis=0)     
-
-#    def Pint(self):
-#        # integrate spectral power = integrate(spectra)
-#        return np.trapz(self.Pspec, x=self.xspec, axis=0)  
     
     def plot(self, Pspec='global', ispec=0, specname=None, xspec=wvl):
         # plot EQE on top of a spectrum
