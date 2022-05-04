@@ -234,6 +234,7 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
     #print(nSlams, nspecs, njuncs, nQlams, start, stop, xspec[n0], xspec[n1], n0, n1)    
     return Jint
 
+@lru_cache(maxsize = 100)
 def JdbFromEg(TC,Eg,dbsides=1.,method=None):
     '''
     return the detailed balance dark current
@@ -261,6 +262,7 @@ def JdbFromEg(TC,Eg,dbsides=1.,method=None):
 
     return Jdb
 
+@lru_cache(maxsize = 100)
 def EgFromJdb(TC, Jdb, Eg=1.0, eps=1e-6, itermax=100, dbsides=1.):
     '''
     see GetData AT_Egcalc

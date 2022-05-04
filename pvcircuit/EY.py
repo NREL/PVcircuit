@@ -88,7 +88,7 @@ def cellmodeldesc(model,oper):
     # return description of model and operation
     # cell 'model' can be 'Multi2T' or 'Tandem3T'
     #'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
-    #Outputs (ratio, type3T, loss)
+    #Outputs (bot, top, ratio, type3T)
 
     #loss = 1.
     bot = 0
