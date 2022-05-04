@@ -526,7 +526,54 @@ Plot IV3T points or lines onto existing axes
 
 ## QE Analysis Functions
 
+## qe.EQE( ) Class
+Object to contain all EQE information
+
+## EQE.attributes
+### EQE.name
+*string* Name of this EQE object
+
+### EQE.rawEQE
+*numpy.array* 2D(lambda)(junction) raw input rawEQE (not LC corrected)
+
+### EQE.xEQE 
+*numpy.array* wavelengths [nm] for rawEQE data
+
+### EQE.njuncs 
+*int* number of junctions
+
+### EQE.sjuncs 
+*int* names of junctions
+
+### EQE.nQlams 
+*int* number of wavelengths in rawEQE data
+
+### EQE.corrEQE 
+*numpy.array* luminescent coupling corrected EQE same size as rawEQE      
+
+### EQE.etas 
+*numpy.array* LC factor for next three junctions
+
+## EQE.methods()
+
+### EQE.LCcorr(self)
+Calculate LC corrected EQE using procedure from Steiner et al., IEEE PV, v3, p879 (2013)
+
+Creates *self.corrEQE*
+
+### EQE.Jdb(self, TC, Eguess = 1.0, kTfilter=3, dbug=False)
+Calculate Jscs and Egs from *self.corrEQE*
+
+### EQE.Jint(self,  Pspec='global', xspec=wvl)
+Integrate junction currents = integrate (spectra * lambda * EQE(lambda))
+
+### EQE.plot(self, Pspec='global', ispec=0, specname=None, xspec=wvl)
+Plot *self.rawEQE* and *self.corrEQE* on top of a spectrum
+
+## other qe functions
+
 ### qe.JintMD(EQE, xEQE, Pspec, xspec=wvl)
+*obsolete use EQE.Jint*
 calculate total power of spectra and Jsc of each junction from multi-dimentional EQE
 - integrate multidimentional QE(lambda)(junction) times MD reference spectra Pspec(lambda)(ispec)
 - external quantum efficiency QE[unitless] x-units = nm, 
@@ -540,6 +587,7 @@ output:
 - total power=int(Pspec) if EQE is None
 
 ### qe.JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False)
+*obsolte use EQE.Jdb*
 calculate detailed-balance reverse saturation current from EQE vs xEQE
 - xEQE[=]nm
 - can optionally use (start, step) for equally spaced data
@@ -632,23 +680,60 @@ Expects 'Tandems' github to be parallel to 'PVcircuit' github
 
 ## TMY.methods()
 
-### TMY.cellcurrents(self,EQE,xEQE)
-Subcell currents and Egs under TMY for a given EQE[junc] as a function of xEQE
+### TMY.cellcurrents(self,EQE, STC=False)
+Calculate subcell currents under TMY for a given EQE class  or standard test conditions (if STC=True)
 
 Creates *numpy.array* for subsequent calculations
-- self.JscSTCs[refspec,junc]
+- self.JscSTCs[refspec,junc] if STC=True
 - self.Jscs[spec,junc]
+
+### TMY.cellbandgaps(self,EQE,TC=25)
+Calculate Egs and Jdbs under TMY for a given EQE class
+
+Creates *numpy.array* for subsequent calculations
+- self.Jdbs[junc]
 - self.Eg[junc]
 
-### TMY.cellpower(self,model,oper,iref=1)
-Max power of a cell under self TMY.
+### TMY.cellSTCeff(self,model,oper,iref=1)
+Calculate efficiency of a cell under a reference spectrum
+*self.JscSTCs* and *self.Egs* must be calculate first. 
 
-Cell model can be 'Multi2T' or 'Tandem3T'
--'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
+Inputs
+- cell 'model' can be 'Multi2T' or 'Tandem3T' objects
+- 'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM21', etc
+- iref = 0 -> space
+- iref = 1 -> global
+- iref = 2 -> direct
 
-self.Jscs and self.Egs must be calculate first using *TMY.cellcurrents*
+Outputs 
+- STCeff efficiency of cell under reference spectrum (space,global,direct)
+
+### TMY.cellEYeff(self,model,oper)
+Calculate efficiency of a cell under self (TMY).
+*self.Jscs* and *self.Egs* must be calculate first. 
+
+Inputs
+- cell 'model' can be 'Multi2T' or 'Tandem3T'
+- 'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
 
 Outputs 
 - EY energy yield of cell [kWh/m2/yr]
 - EYeff energy yield efficiency = EY/YearlyEnergy
-- STCeff efficiency of cell under reference spectrum (space,global,direct)
+
+## other EY functions
+
+### VMloss(type3T, bot, top, ncells):
+Calculates approximate loss factor for VM strings of 3T tandems
+
+### VMlist(mmax):
+generate a list of VM configurations + 'MPP'=4T and 'CM'=2T
+
+mmax < 10 for formating reasons
+### cellmodeldesc(model,oper):
+return description of model and operation
+- cell 'model' can be 'Multi2T' or 'Tandem3T'
+- 'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
+
+Outputs: (bot, top, ratio, type3T)
+
+ 
