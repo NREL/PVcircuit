@@ -479,7 +479,7 @@ class Tandem3T(object):
         meastype = 'CZ'
         Voc3 = self.Voc3(meastype)  # find triple Voc point
         ln = IV3T(name=name, meastype = meastype)
-        lnout = IV3T(name=name, meastype = meastype)
+        lnout = IV3T(name=name, shape=0, meastype = meastype)
         sign = np.sign(Voc3.Vzt[0]/Voc3.Vrz[0])
         x0 = 0
         if (abs(Voc3.Vzt[0]) * top > abs(Voc3.Vrz[0]) * bot):
@@ -502,17 +502,17 @@ class Tandem3T(object):
             nmax = np.argmax(ln.Ptot)
             x0 = xln[max(0,(nmax-1))]
             x1 = xln[min((nmax+1),(pnts-1))]
-            #print(ln)
-            #print(nmax, x0, x1, ln.Ptot[nmax], ln.name)  
- 
-        #single MPP point in IV3T space
-        MPP = IV3T(name = 'MPP' + sbot + stop, meastype = meastype, shape=1)
-        MPP.Vzt[0] = ln.Vzt[nmax]
-        MPP.Vrz[0] = ln.Vrz[nmax]
-        MPP.kirchhoff(['Vzt', 'Vrz'])
-        self.I3Trel(MPP)
-        
-        #NOTE: should reorder lnout by xkey for nice line on plot
+
+        lnout.sort(xkey)  #sort for nice line         
+        # find useless values
+        ind = []
+        for i, Ptot in enumerate(lnout.Ptot.flat):
+            if (math.isfinite(Ptot)):
+                if (Ptot < 0.): ind.append(i)   # negative
+            else:   #not finite
+                ind.append[i]  
+        lnout.delete(ind) # delete extraneous points from lnout
+        MPP = lnout.MPP(name)  #single MPP point in IV3T space
           
         return lnout, MPP
 
@@ -524,7 +524,7 @@ class Tandem3T(object):
         meastype = 'CZ'
         Isc3 = self.Isc3(meastype)  # find triple Voc point
         ln = IV3T(name=name, meastype = meastype)
-        lnout = IV3T(name=name, meastype = meastype)
+        lnout = IV3T(name=name, shape=0, meastype = meastype)
         sign = np.sign(Isc3.Iro[0]/Isc3.Ito[0])
         x0 = 0
         yconstraint = 'x'+ ' * (' + str(sign) + ')'
@@ -546,18 +546,18 @@ class Tandem3T(object):
             nmax = np.argmax(ln.Ptot)
             x0 = xln[max(0,(nmax-1))]
             x1 = xln[min((nmax+1),(pnts-1))]
-            #print(ln)
-            #print(nmax, x0, x1, ln.Ptot[nmax], ln.name)  
  
-        #single MPP point in IV3T space
-        MPP = IV3T(name = 'MPPCM' , meastype = meastype, shape=1)
-        MPP.Iro[0] = ln.Iro[nmax]
-        MPP.Ito[0] = ln.Ito[nmax]
-        MPP.kirchhoff(['Iro', 'Ito'])
-        self.V3T(MPP)
- 
-        #NOTE: should reorder lnout by xkey for nice line on plot
-                  
+        lnout.sort(xkey)  #sort for nice line         
+        # find useless values
+        ind = []
+        for i, Ptot in enumerate(lnout.Ptot.flat):
+            if (math.isfinite(Ptot)):
+                if (Ptot < 0.): ind.append(i)   # negative
+            else:   #not finite
+                ind.append[i]  
+        lnout.delete(ind) # delete extraneous points from lnout
+        MPP = lnout.MPP(name)  #single MPP point in IV3T space
+                
         return lnout, MPP
     
     def MPP(self, pnts=31, VorI= 'I', less = 2., bplot=False):

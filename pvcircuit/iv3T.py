@@ -81,7 +81,7 @@ class IV3T(object):
     Vdevlist = ['Vzt','Vrz','Vtr']
         
      
-    def __init__(self, name = 'iv3T', meastype='CZ', shape=1, fillname=''):
+    def __init__(self, name = 'iv3T', meastype='CZ', shape=0, fillname=''):
         
         self.name = name
         self.meastype = meastype
@@ -344,9 +344,7 @@ class IV3T(object):
         return (nmin,nmax)
 
     def resize(self, shape, fillname = ''):
-        '''
-        resize arrays and clear values
-        '''
+        # resize arrays and clear values
         
         # force shape to be tuple
         if np.ndim(shape) == 0:   #not iterable
@@ -369,11 +367,31 @@ class IV3T(object):
                del self.names[-1]   #delete
                
         return oldsize, newsize
+        
+    def delete(self, ind):
+        # remove point(s) from arrays in self
+        
+        for key in self.arraykeys:
+            array = getattr(self, key)
+            oldarray = np.copy(array)
+            if oldarray.ndim > 1: print('too many dimensions', oldarray.ndim)
+            newarray = np.delete(oldarray, ind, 0)
+            setattr(self, key, newarray)
+
+        # need to convert self.name to np.array and back to list
+        oldarray = np.array(self.names, copy=True, dtype=str)
+        newarray = np.delete(oldarray, ind, 0)
+        self.names = list(newarray)
+
+        nmin, nmax = self.sizes(self.arraykeys) 
+        if  nmin == nmax:    #everything in inlist has same length
+            self.shape = self.Ptot.shape
+        else:
+            print('not all same size', nmin, nmax)
 
     def append(self, iv3T):
-        '''
-        append another Junction object to self
-        '''
+        #append another iv3T object to self
+        
         nmin, nmax = self.sizes(self.arraykeys)
         if nmin != nmax:
             print(nmin, nmax, 'not same size')
@@ -401,6 +419,21 @@ class IV3T(object):
             #print('meastypes different', self.meastype , iv3T.meastype)
             
         return 0
+        
+    def sort(self, key):
+        # sort a iv3T line based on array key
+        # unexpected results for iv3T box
+        sortarray = getattr(self, key)
+        p = np.argsort(sortarray)
+        
+        for key in self.arraykeys:
+            array = getattr(self, key)
+            oldarray = np.copy(array)
+            setattr(self, key, oldarray[p])
+            
+        # need to convert self.name to np.array and back to list
+        oldarray = np.array(self.names, copy=True, dtype=str)
+        self.names = list(oldarray[p])
         
     def init(self,inlist,outlist):
         #initialize output arrays to nan if input arrays are consistent
