@@ -980,6 +980,12 @@ class Tandem3T(object):
         Rout = widgets.Output()
         #Rout.layout.height = '580px'
         with Rout: # output device
+            if plt.isinteractive: 
+                plt.ioff()
+                restart = True
+            else:
+                restart = False
+
             if Idata3T:
                 Ifit3T =  Idata3T.copy()
                 Ifit3T.set(name = self.name+'_Ifit')
@@ -1007,11 +1013,20 @@ class Tandem3T(object):
                 Iax, Iobjs = Ifit3T.plot(cmap=None, ccont='red', **Iargs)
                 
             fitsp.addpoints(Iax, Iargs['xkey'], Iargs['ykey'], **pltargs)
+            Ifig = Iax.get_figure()
+            Ifig.show()
+            if restart: plt.ion()
         
         # Left output -> dark
         Lout = widgets.Output()
         #Lout.layout.height = '580px'
         with Lout: # output device
+            if plt.isinteractive: 
+                plt.ioff()
+                restart = True
+            else:
+                restart = False
+
             if Vdata3T:
                 Vfit3T = Vdata3T.copy()
                 Vfit3T.set(name = self.name+'_Vfit')
@@ -1037,9 +1052,13 @@ class Tandem3T(object):
                 #Vfit3T.plot(inplot = (Vax, Vobjs), cmap=None, ccont='red', **Vargs) #append fit
             else:
                 Vax, Vobjs = Vfit3T.plot(cmap=None, ccont='red', **Vargs)
+
                 
             fitsp.addpoints(Vax, Vargs['xkey'], Vargs['ykey'], **pltargs)
-           
+            Vfig = Vax.get_figure()
+            Vfig.show()
+            if restart: plt.ion()
+          
         ToutBox = widgets.HBox([Lout, Rout], layout=junc_layout) 
          
         in_name.observe(on_3Tchange,names='value') #update values

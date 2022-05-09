@@ -393,9 +393,9 @@ class Multi2T(object):
             Eg_list = self.proplist('Eg') #list of Eg 
             Egmax = sum(Eg_list)
             scale = 1000.
-            fmtstr = 'Fit:  Voc = {0:>7.3f} V, Isc = {1:>7.2f} mA, FF = {2:>7.1f}%, '
-            fmtstr += 'Pmp = {3:>7.1f} mW, Vmp = {4:>7.3f} V, Imp = {5:>7.2f} mA'
-            fmtstr += ', Eff = {6:>7.2f} %'
+            fmtstr = 'Fit:  Voc = {0:>5.3f} V, Isc = {1:>6.2f} mA, FF = {2:>4.1f}%, '
+            fmtstr += 'Pmp = {3:>5.1f} mW, Vmp = {4:>5.3f} V, Imp = {5:>6.2f} mA'
+            fmtstr += ', Eff = {6:>5.2f} %'
             outstr = fmtstr.format(MPP['Voc'], MPP['Isc']*scale, MPP['FF']*100,
                                     MPP['Pmp']*scale, MPP['Vmp'], MPP['Imp']*scale, 
                                     (MPP['Pmp']*scale/self.lightarea))
@@ -409,6 +409,7 @@ class Multi2T(object):
             
             VoutBox.clear_output()
             with VoutBox:   print(outstr)
+
 
             with Lout: # left output device -> dark
                 #replot
@@ -473,7 +474,7 @@ class Multi2T(object):
 
             te = time()
             dt=(te-ts)
-            with VoutBox:   print('{0:>6.2f} s'.format(dt))
+            with VoutBox:   print('Calc Time: {0:>6.2f} s'.format(dt))
 
         # summary line
         VoutBox = widgets.Output()
@@ -484,16 +485,32 @@ class Multi2T(object):
         Lout = widgets.Output()
         with Lout: # output device
             #print(desc, old, new)
+            if plt.isinteractive: 
+                plt.ioff()
+                restart = True
+            else:
+                restart = False
+
             dfig, dax = self.plot(dark=True) 
             dfig.set_figheight(4)
+            dfig.show()
+            if restart: plt.ion()
             
         # Right output -> light
         Rout = widgets.Output()
         with Rout: # output device
             #print(desc, old, new)
+            if plt.isinteractive: 
+                plt.ioff()
+                restart = True
+            else:
+                restart = False
+
             lfig, lax = self.plot(dark=False) 
             lfig.set_figheight(4)
-            
+            lfig.show()
+            if restart: plt.ion()
+           
         ToutBox = widgets.HBox([Lout, Rout], layout=junc_layout) 
         
         # numerical outputs

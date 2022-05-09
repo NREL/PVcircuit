@@ -11,6 +11,7 @@ from functools import lru_cache
 import pandas as pd  #dataframes
 import numpy as np   #arrays
 import matplotlib.pyplot as plt   #plotting
+import matplotlib as mpl   #plotting
 from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
 from scipy.interpolate import interp1d
@@ -347,6 +348,9 @@ class EQE(object):
             sjuncs = [num2words(junc+1, to = 'ordinal') for junc in range(njuncs)]
 
         #class attributes
+        
+        self.ui = None      
+        self.debugout = widgets.Output() # debug output
         self.name = name        # name of EQE object
         self.rawEQE = rawEQE    # 2D(lambda)(junction) raw input rawEQE (not LC corrected)
         self.xEQE = xEQE        # wavelengths [nm] for rawEQE data
@@ -358,30 +362,37 @@ class EQE(object):
         self.etas = np.zeros((njuncs,3), dtype=np.float64) #LC factor for next three junctions
         self.LCcorr() #calculate LC with zero etas
         
-    def LCcorr(self):
+    def LCcorr(self, junc=None, dist=None, val=None):
+        # change one eta[junc,dist] value
         # calculate LC corrected EQE
         # using procedure from 
         # Steiner et al., IEEE PV, v3, p879 (2013)
         etas = self.etas
+        #with self.debugout: print(junc,dist,val)
+        if junc == None or dist == None or val == None:
+            pass
+        else:
+            etas[junc,dist] = val   #assign value
+            #with self.debugout: print('success')
         raw = self.rawEQE
-        for junc in range(self.njuncs):
-            if junc == 0: #1st junction
-                self.corrEQE[:,junc] = raw[:,junc]
-            elif junc == 1: #2nd junction
-                denom=1.+etas[junc,0]
-                self.corrEQE[:,junc] = raw[:,junc] * denom \
-                    - raw[:,junc-1] * etas[junc,0] 
-            elif junc == 2: #3rd junction
-                denom=1.+etas[junc,0]*(1.+etas[junc,1])
-                self.corrEQE[:,junc] = raw[:,junc] * denom \
-                    - raw[:,junc-1] * etas[junc,0] \
-                    - raw[:,junc-2] * etas[junc,0] * etas[junc,1]
-            else: #higher junctions
-                denom=1.+etas[junc,0]*(1.+etas[junc,1]*(1.+etas[junc,2]))
-                self.corrEQE[:,junc] = raw[:,junc] * denom \
-                    - raw[:,junc-1] * etas[junc,0] \
-                    - raw[:,junc-2] * etas[junc,0] * etas[junc,1] \
-                    - raw[:,junc-3] * etas[junc,0] * etas[junc,1] * etas[junc,2]
+        for ijunc in range(self.njuncs):
+            if ijunc == 0: #1st ijunction
+                self.corrEQE[:,ijunc] = raw[:,ijunc]
+            elif ijunc == 1: #2nd ijunction
+                denom=1.+etas[ijunc,0]
+                self.corrEQE[:,ijunc] = raw[:,ijunc] * denom \
+                    - raw[:,ijunc-1] * etas[ijunc,0] 
+            elif ijunc == 2: #3rd ijunction
+                denom=1.+etas[ijunc,0]*(1.+etas[ijunc,1])
+                self.corrEQE[:,ijunc] = raw[:,ijunc] * denom \
+                    - raw[:,ijunc-1] * etas[ijunc,0] \
+                    - raw[:,ijunc-2] * etas[ijunc,0] * etas[ijunc,1]
+            else: #higher ijunctions
+                denom=1.+etas[ijunc,0]*(1.+etas[ijunc,1]*(1.+etas[ijunc,2]))
+                self.corrEQE[:,ijunc] = raw[:,ijunc] * denom \
+                    - raw[:,ijunc-1] * etas[ijunc,0] \
+                    - raw[:,ijunc-2] * etas[ijunc,0] * etas[ijunc,1] \
+                    - raw[:,ijunc-3] * etas[ijunc,0] * etas[ijunc,1] * etas[ijunc,2]
                 
     def Jdb(self, TC, Eguess = 1.0, kTfilter=3, dbug=False):
         # calculate Jscs and Egs from self.corrEQE
@@ -473,10 +484,12 @@ class EQE(object):
             ax.plot(self.xEQE, self.rawEQE[:,i], lw=1, marker='', label='_'+self.sjuncs[i])
             ax.plot(self.xEQE, self.corrEQE[:,i], lw=3, marker='', label=self.sjuncs[i])
         ax.legend()
-        ax.set_ylim(0,1)      
+        ax.set_ylim(-0.1,1.1)      
         ax.set_xlim(math.floor(self.start/rnd2)*rnd2, math.ceil(self.stop/rnd2)*rnd2)
         ax.set_ylabel('EQE')  # Add a y-label to the axes.
         ax.set_xlabel('Wavelength (nm)')  # Add an x-label to the axes.
+        ax.axhline(0, lw=0.5, ls='--', c='black', label='_hzero')
+        ax.axhline(1, lw=0.5, ls='--', c='black', label='_hone')
 
         rax = ax.twinx() #right axis
         #check spectra input
@@ -492,11 +505,12 @@ class EQE(object):
             Pspec = np.array(Pspec, dtype=np.float64)            
             if not specname: specname='spectrum'+str(ispec)
             if Pspec.ndim == 2: Pspec = Pspec[:,ispec] #slice 2D numpy to 1D
-            rax.fill_between(xspec, Pspec, step="pre", alpha=0.2, color='grey')
+            rax.fill_between(xspec, Pspec, step="mid", alpha=0.2, color='grey', label='fill')
             rax.plot(xspec, Pspec, c='grey', lw=0.5, marker='', label=specname)
             rax.set_ylabel('Irradiance (W/m2/nm)')  # Add a y-label to the axes.
-            rax.set_ylim(bottom=0)
+            rax.set_ylim(0,2)
             #rax.legend(loc=7)
+            '''
             Jscs = self.Jint(Pspec=Pspec, xspec=xspec)
             Jdbs, Egs = self.Jdb(25)
             OP = PintMD(Pspec=Pspec, xspec=xspec)
@@ -505,5 +519,187 @@ class EQE(object):
             print(specname, OP, ' W/m2')
             print('Eg = ',Egs, ' eV')
             print('Jsc = ',Jscs, ' mA/cm2')
-        
+            '''
         return ax, rax
+        
+    def controls(self, Pspec='global', ispec=0, specname=None, xspec=wvl):
+        '''
+        use interactive_output for GUI in IPython
+        '''
+        tand_layout = widgets.Layout(width= '300px', height='40px')
+        vout_layout = widgets.Layout(width= '180px', height='40px')
+        junc_layout = widgets.Layout(display='flex',
+                    flex_flow='row',
+                    justify_content='space-around')
+        multi_layout = widgets.Layout(display='flex', 
+                    flex_flow='row',
+                    justify_content='space-around')
+
+        replot_types = [widgets.widgets.widget_float.BoundedFloatText, 
+                        widgets.widgets.widget_int.BoundedIntText,
+                        widgets.widgets.widget_int.IntSlider,
+                        widgets.widgets.widget_float.FloatSlider,
+                        widgets.widgets.widget_float.FloatLogSlider]
+
+        def on_EQEchange(change):
+            # function for changing values
+            old = change['old'] #old value
+            new = change['new'] #new value
+            owner = change['owner'] #control
+            value = owner.value
+            desc = owner.description            
+            #with self.debugout: print('Mcontrol: ' + desc + '->', value)
+            #self.set(**{desc:value})
+
+        def on_EQEreplot(change):
+            # change info
+            fast=True
+            if type(change) is widgets.widgets.widget_button.Button:
+                owner = change
+            else: # other controls
+                owner = change['owner'] #control 
+                value = owner.value               
+            desc = owner.description  
+            if desc == 'Recalc': fast = False
+              
+            #recalculate            
+            ts = time()  
+            if desc[:3] == 'eta':
+                junc, dist = parse('eta{:1d}{:1d}',desc)
+                self.LCcorr(junc, dist, value) #replace one value and recalculate LC
+                specname = None
+            elif desc == 'spec':
+                if value in dfrefspec.columns:
+                    specname = value
+                    Pspec = dfrefspec[specname].to_numpy(dtype=np.float64, copy=True)              
+            else:
+                VoutBox.clear_output()
+                with VoutBox: print(desc)
+                return 0
+
+            with Rout: # right output device -> light
+                #replot
+                lines = ax.get_lines()
+                for line in lines:
+                    linelabel=line.get_label()
+                    #with self.debugout: print(linelabel)
+                    for i in range(self.njuncs):
+                        if linelabel == self.sjuncs[i]:
+                             line.set_data(self.xEQE, self.corrEQE[:,i]) #replot
+                            
+                rlines = rax.get_lines()
+                for line in rlines:
+                    linelabel=line.get_label()
+                    #with self.debugout: print(linelabel)
+                    if linelabel in refnames:
+                        if specname == None: #desc == 'spec'
+                             specname = linelabel
+                             Pspec = specname
+                        else:
+                            line.set_data(xspec, Pspec) #replot spectrum 
+                            for obj in rax.get_children():
+                                if type(obj) is mpl.collections.PolyCollection: #contours
+                                    if obj.get_label() == 'fill':
+                                        obj.remove() #remove old fill
+                            rax.fill_between(xspec, Pspec, step="mid", alpha=0.2, color='grey', label='fill')
+                            line.set(label = specname) #relabel spectrum
+
+            Jscs = self.Jint(Pspec, xspec)
+            Jdbs, Egs = self.Jdb(25)
+            OP = PintMD(Pspec, xspec)
+
+            VoutBox.clear_output()
+            with VoutBox: 
+                stext = (specname+' {0:6.2f} W/m2').format(OP) 
+                print('Eg = ',Egs, ' eV')
+                print(stext)
+                print('Jsc = ',Jscs[0], ' mA/cm2')
+
+            te = time()
+            dt=(te-ts)
+            with VoutBox:   print('Calc Time: {0:>6.2f} s'.format(dt))
+
+        # summary line
+        VoutBox = widgets.Output()
+        VoutBox.layout.height = '70px'
+        #with VoutBox: print('Summary')
+            
+        # Right output -> EQE plot
+        Rout = widgets.Output()
+        with Rout: # output device
+            if plt.isinteractive: 
+                plt.ioff()
+                restart = True
+            else:
+                restart = False
+            ax, rax = self.plot(Pspec, ispec, specname, xspec)
+            fig = ax.get_figure()
+            fig.show()
+            rlines = rax.get_lines()
+            for line in rlines:
+                linelabel=line.get_label()
+                if linelabel in refnames:
+                    specname = linelabel
+            if restart: plt.ion()
+        
+        # tandem3T controls
+        in_tit = widgets.Label(value='EQE: ', description='title')
+        in_name = widgets.Text(value=self.name, description='name', layout=tand_layout,
+            continuous_update=False)                        
+        in_name.observe(on_EQEchange,names='value') #update values
+        
+        in_spec = widgets.Dropdown(value=specname, description='spec', layout=tand_layout,
+            options=refnames)                        
+        in_spec.observe(on_EQEreplot,names='value') #update values
+
+        Hui = widgets.HBox([in_tit, in_name, in_spec])
+        #in_Rs2T.observe(on_2Tchange,names='value') #update values
+
+        in_eta = []
+        elist0 = []
+        elist1 = []
+        elist2 = []
+        # list of eta controls
+        for i in range(self.njuncs) : 
+            if i > 0:          
+                in_eta.append(widgets.FloatSlider(value=self.etas[i,0], min=-0.2, max=1.5,step=0.001,
+                    description='eta'+str(i)+"0",layout=junc_layout,readout_format='.4f'))
+                j = len(in_eta)-1
+                elist0.append(in_eta[j])
+                in_eta[j].observe(on_EQEreplot,names='value')  #replot
+            #if i > 1:          
+                in_eta.append(widgets.FloatSlider(value=self.etas[i,1], min=-0.2, max=1.5,step=0.001,
+                    description='eta'+str(i)+"1",layout=junc_layout,readout_format='.4f'))
+                j = len(in_eta)-1
+                elist1.append(in_eta[j])
+                in_eta[j].observe(on_EQEreplot,names='value')  #replot
+                if i > 1:
+                    in_eta[j].observe(on_EQEreplot,names='value')  #replot
+                else:
+                    in_eta[j].disabled = True 
+            #if i > 2:          
+                in_eta.append(widgets.FloatSlider(value=self.etas[i,2], min=-0.2, max=1.5,step=0.001,
+                    description='eta'+str(i)+"2",layout=junc_layout,readout_format='.4f'))
+                j = len(in_eta)-1
+                elist2.append(in_eta[j])
+                if i > 2:
+                    in_eta[j].observe(on_EQEreplot,names='value')  #replot
+                else:
+                    in_eta[j].disabled = True 
+        etaui0 = widgets.HBox(elist0)
+        etaui1 = widgets.HBox(elist1)
+        etaui2 = widgets.HBox(elist2)
+            
+        #in_Rs2T.observe(on_2Treplot,names='value')  #replot
+        #in_2Tbut.on_click(on_2Treplot)  #replot  
+ 
+        #EQE_ui = widgets.HBox(clist)
+        #eta_ui = widgets.HBox(jui) 
+        
+        ui = widgets.VBox([Rout, VoutBox, Hui, etaui0, etaui1, etaui2])
+        self.ui = ui
+        #in_2Tbut.click() #fill in MPP values
+
+        # return entire user interface, dark and light graph axes for tweaking
+        return ui, ax, rax
+        
