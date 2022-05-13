@@ -104,8 +104,12 @@ class Junction(object):
         create a copy of a Junction
         need deepcopy() to separate lists, dicts, etc but crashes
         '''
-        
-        return copy.copy(self)
+        tmp = copy.copy(self)
+        # manual since deepcopy does not work
+        tmp.n = self.n.copy()
+        tmp.J0ratio = self.J0ratio.copy()
+        tmp.RBB_dict = self.RBB_dict.copy()
+        return tmp
 
     def __str__(self):
         #attr_list = self.__dict__.keys()
@@ -198,7 +202,7 @@ class Junction(object):
     def set(self, **kwargs):
         # controlled update of Junction attributes
 
-        #with self.debugout: print('Jset: ', list(kwargs.keys()))
+        with self.debugout: print('Jset('+self.name+'): ', list(kwargs.keys()))
                         
         for testkey, value in kwargs.items():
             if testkey.endswith(']') and testkey.find('[') > 0 :
@@ -249,6 +253,7 @@ class Junction(object):
                     with self.debugout: print('array', key, value)
             elif key in self.ATTR: # scalar float
                 self.__dict__[key] = np.float64(value)
+                with self.debugout: print('ATTR', key, value)
             else:
                 with self.debugout: print('no Junckey',key)
                 
@@ -484,7 +489,7 @@ class Junction(object):
             description='Jext',layout=cell_layout,readout_format='.4f')
         in_JLC = widgets.FloatSlider(value=self.JLC, min=0., max=.080,step=0.001,
             description='JLC',layout=cell_layout,readout_format='.4f',disabled=True)
-        in_Gsh = widgets.FloatLogSlider(value=self.Gsh, base=10, min=-10, max=3 ,step=0.01,
+        in_Gsh = widgets.FloatLogSlider(value=self.Gsh, base=10, min=-12, max=3 ,step=0.01,
             description='Gsh',layout=cell_layout,readout_format='.2e')
         in_Rser= widgets.FloatLogSlider(value=self.Rser, base=10, min=-7, max=3, step=0.01,
             description='Rser',layout=cell_layout,readout_format='.2e')           
@@ -493,7 +498,7 @@ class Junction(object):
         in_totalarea = widgets.FloatSlider(value=self.totalarea, min=self.lightarea, max=1e3, step=0.1,
             description='totalarea',layout=cell_layout)
         in_beta = widgets.FloatSlider(value=self.beta, min=0., max=50.,step=0.1,
-            description='beta',layout=cell_layout)
+            description='beta',layout=cell_layout,readout_format='.2e')
         in_gamma = widgets.FloatSlider(value=self.gamma, min=0., max=3.0, step=0.1,
             description='gamma',layout=cell_layout,readout_format='.2e')
         in_pn = widgets.IntSlider(value=self.pn, min=-1, max=1, step=1,
@@ -557,7 +562,7 @@ class Junction(object):
             cntrls.append(in_rbblab) 
             in_rbb = []  # empty list of n controls
             for i, key in enumerate(RBB_keys):
-                with self.debugout: print(i,key)
+                with self.debugout: print('RBB:',i,key)
                 if key == 'method':       
                     in_rbb.append(widgets.Dropdown(options=['','JFG','bishop'],value=self.RBB_dict[key],
                         description=key, layout=cell_layout, continuous_update=False))

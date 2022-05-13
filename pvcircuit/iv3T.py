@@ -81,11 +81,12 @@ class IV3T(object):
     Vdevlist = ['Vzt','Vrz','Vtr']
         
      
-    def __init__(self, name = 'iv3T', meastype='CZ', shape=0, fillname=''):
+    def __init__(self, name = 'iv3T', meastype='CZ', shape=0, fillname='',area=1):
         
         self.name = name
         self.meastype = meastype
-        
+        self.area = area    #area (cm2) used to calculate J <-> I/A
+                
         # force shape to be tuple
         if np.ndim(shape) == 0:   #not iterable
             self.shape = (shape, )
@@ -97,6 +98,7 @@ class IV3T(object):
  
         size = getattr(self, key).size  #size of the last arraykey
         self.names = [fillname for i in range(size)]  # list of names of point in flat arrays
+        #### future use string numpy for self.names instead of list  ####
 
     def copy(self):
         '''
@@ -109,7 +111,10 @@ class IV3T(object):
         strout=self.name + ": <pvcircuit.iv3T.IV3T class>"
         attr_list = dict(self.__dict__.items()).copy()  #all attributes
         nshape = len(str(self.shape))  # number letters in largest index string
-        nnames = len(max(self.names, key=len)) #number of letters in larges names[i] string
+        if len(self.names) > 0:
+            nnames = len(max(self.names, key=len)) #number of letters in larges names[i] string
+        else:
+            nnames = 0
         nshape = max(nshape,nnames)
         title = '#'.center(nshape)
         sizes = self.sizes(self.arraykeys)
@@ -257,7 +262,7 @@ class IV3T(object):
             devlist = IV3T.Idevlist.copy()   #['Iro','Izo','Ito'] 
             scale = 1000.
 
-        hex3T = IV3T(name='hexgrid')  # create IV3T object
+        hex3T = IV3T(name='hexgrid', area=self.area)  # create IV3T object
 
         for ykey in devlist:
             others = devlist.copy()
@@ -318,7 +323,7 @@ class IV3T(object):
         find max power point of existing IV3T class datapoints
         '''
 
-        temp3T = IV3T(name='MPP'+name, shape=1, meastype = self.meastype)
+        temp3T = IV3T(name='MPP'+name, shape=1, meastype = self.meastype, area=self.area)
         nmax = np.argmax(self.Ptot)  
 
         for key in self.arraykeys:
@@ -640,7 +645,7 @@ class IV3T(object):
         
         return 0
  
-    def loadcsv(name, path, fileA, fileB, VorI, meastype, Iscale=1000.):
+    def loadcsv(name, path, fileA, fileB, VorI, meastype, Iscale=1000., area=1):
         '''
         import csv file as data table into iv3T object
         two 2D arrays with x and y index on top and left
@@ -648,18 +653,18 @@ class IV3T(object):
         VA(IA,IB) & VB(IA,IB) .......... VorI='I'
             or
         IA(VA,VB) & IB(VA,VB) .......... VorI='V'
-        Iscale converts currnet mA -> A or mA/cm2-> A
+        Iscale converts current mA -> A or mA/cm2-> A
         '''
         
         xkey = VorI + 'A'
         ykey = VorI + 'B'
 
         if VorI == 'I':
-            indscale = Iscale  #mA
+            indscale = Iscale/area  #mA
             dscale = 1.
         else:
             indscale = 1.
-            dscale = Iscale  #mA
+            dscale = Iscale/area  #mA
        
         # read into dataframe
         dfA = pd.read_csv(path+fileA, index_col=0)
@@ -686,7 +691,7 @@ class IV3T(object):
         if yn != len(colB): return 6
  
         # create iv3T class
-        iv3T = IV3T(name = name, meastype = meastype)
+        iv3T = IV3T(name = name, meastype = meastype, area=area)
         iv3T.box(xkey, x0/indscale, x1/indscale, xn, ykey, y0/indscale, y1/indscale, yn)
         #print(xkey, x0/indscale, x1/indscale, xn, ykey, y0/indscale, y1/indscale, yn)
         
@@ -709,8 +714,9 @@ class IV3T(object):
                
         return iv3T
    
-    def plot(self, xkey = None, ykey = None, zkey = None,
-                inplot = None, cmap='terrain', ccont = 'black', bar = True):
+    def plot(self, xkey = None, ykey = None, zkey = 'Ptot',
+                inplot = None, cmap='terrain', ccont = 'black', 
+                bar = True, log=False, density=False):
         '''
         plot 2D IV3T object
             zkey(xkey,ykey) 
@@ -741,8 +747,12 @@ class IV3T(object):
         
         VorI = xkey[0]
         if VorI == 'I':
-            unit = ' (mA)'
-            scale = 1000.
+            if density:
+                unit = ' (mA/cm2)'
+                scale = 1000./self.area
+            else:
+                unit = ' (mA)'
+                scale = 1000.
             step = 10
         else:
             unit = ' (V)'
@@ -751,12 +761,20 @@ class IV3T(object):
         
         z0 = zkey[0] 
         if z0 == 'P':
-            zlab = 'Power (mW)'
-            zscale = 1000.
+            if density:
+                zlab = 'Power (mW/cm2)'
+                zscale = 1000./self.area
+            else:
+                zlab = 'Power (mW)'
+                zscale = 1000.
             lstep = 5.
         elif z0 == 'I':
-            zlab = zkey + ' (mA)'
-            zscale = 1000.
+            if density:
+                zlab = zkey + ' (mA/cm2)'
+                zscale = 1000./self.area
+            else:
+                zlab = zkey + ' (mA)'
+                zscale = 1000.
             lstep = 5.
         else:
             zlab = zkey + ' (V)'
@@ -769,10 +787,20 @@ class IV3T(object):
         yy = getattr(self,ykey) * scale # 2D
         zz = getattr(self,zkey) * zscale # 2D
         extent = [np.nanmin(xx), np.nanmax(xx), np.nanmin(yy), np.nanmax(yy)]
-        lstep *=  np.ceil(np.nanmax(zz)/10./lstep)
-        Pmax = np.ceil(np.nanmax(zz) / lstep) * lstep
-        print(lstep, Pmax)
-        levels = [ll*lstep for ll in range(10) if ll*lstep <= Pmax]  # for contours
+        if log:
+            zlab = 'log(|'+zlab+'|)'
+            lz = np.log10(np.abs(zz))
+            lstep =  1
+            Pmax = np.ceil(np.nanmax(lz) / lstep) * lstep
+            Pmin = np.floor(np.nanmin(lz) / lstep) * lstep
+            levels = np.arange(Pmin, Pmax+1, lstep)
+        else:
+            lstep *=  np.ceil(np.nanmax(zz)/10./lstep)
+            Pmax = np.ceil(np.nanmax(zz) / lstep) * lstep
+            levels = [ll*lstep for ll in range(10) if ll*lstep <= Pmax]  # for contours
+
+        if len(levels) == 0:
+            levels = None
         
         #print(self.name) # tag this instance
         handles = []
@@ -814,8 +842,12 @@ class IV3T(object):
             cmap.set_under(color='white')  # white for Ptot < 0 and nan
             if xkey == self.xkey and ykey == self.ykey:
                 #image if evenly spaced
-                imag = ax.imshow(zz, vmin=0, vmax=Pmax, origin='lower', 
-                                 extent = extent, cmap=cmap)         
+                if log:
+                    imag = ax.imshow(lz, origin='lower', 
+                                     extent = extent, cmap=cmap)    
+                else:     
+                    imag = ax.imshow(zz, vmin=0, vmax=Pmax, origin='lower', 
+                                     extent = extent, cmap=cmap)         
             else:  
                 #scatter if randomly spaced
                 msize = round(4000/len(zz))   # marker size to fill in
@@ -831,8 +863,10 @@ class IV3T(object):
 
         if ccont:  #don't add contour if ccont == None
             #contour
-            cont = ax.contour(xx, yy, zz, colors = ccont,
-                           levels = levels)
+            if log:
+                cont = ax.contour(xx, yy, lz, colors = ccont, levels = levels)
+            else:           
+                cont = ax.contour(xx, yy, zz, colors = ccont, levels = levels)
             ax.clabel(cont, inline=True, fontsize=10)  
             objs.append(cont)  # output contour as QuadContourSet object
             hands,labs = cont.legend_elements() # lists of each line in contour
@@ -847,12 +881,15 @@ class IV3T(object):
         return ax, objs #fig = ax.get_figure()
         
     #def addpoints(self, ax, colors='black', xkey='VA', ykey='VB', lines=False, label='iv3Tpnts'):
-    def addpoints(self, ax, xkey, ykey, **kwargs):
+    def addpoints(self, ax, xkey, ykey, density=True, **kwargs):
         #add iv3T points to existing axes 
         VorI = xkey[0]
         if VorI == 'I':
-            scale = 1000.
-        else:
+            if density:
+                scale = 1000./self.area
+            else:
+                scale = 1000.
+        else:   #'V'
             scale = 1.
         xp = getattr(self, xkey) * scale
         yp = getattr(self, ykey) * scale
@@ -865,3 +902,70 @@ class IV3T(object):
             ax.scatter(xp, yp, marker='o', s=150, c=colors[:len(xp)], edgecolors='black', \
                 linewidths = 2, zorder=5, label=label)
         '''
+
+    def plotIVslice(self, step = 2, log=True, inplots = None, labelplus=''):
+        # plot iv slices through box iv3T data
+        if len(self.shape) == 2:
+            na, nb = self.shape
+        else:
+            return 1   #must be box
+        xkey = self.xkey
+        ykey = self.ykey
+        scale=1000.
+        
+        #fig, (Lax, Rax) = plt.subplots(1, 2, constrained_layout=True)
+        if inplots == None:
+            Lfig, Lax = plt.subplots(constrained_layout=True)
+            Rfig, Rax = plt.subplots(constrained_layout=True)
+            kwargs = {'lw':0, 'marker':'o'} #markers for data
+        else:
+            Lax, Rax = inplots
+            kwargs = {'lw':1}   #lines for fits
+       
+        VorI = xkey[0]
+        if VorI == 'V':
+            Vxkey = xkey
+            Vykey = ykey
+            Ixkey = xkey.replace('V','I',1)
+            Iykey = ykey.replace('V','I',1)
+        else:  #I
+            Ixkey = xkey
+            Iykey = ykey
+            Vxkey = xkey.replace('I','V',1)
+            Vykey = ykey.replace('I','V',1)
+
+        Vxp = getattr(self, Vxkey)
+        Vyp = getattr(self, Vykey)
+        
+        if log:
+            Ixp = np.log10(np.abs(getattr(self, Ixkey)*scale))
+            Iyp = np.log10(np.abs(getattr(self, Iykey)*scale))        
+            Rax.set_ylabel('log(|'+self.loadlabel(Ixkey)+' mA|)')
+            Lax.set_ylabel('log(|'+self.loadlabel(Iykey)+' mA|)')
+
+        else:
+            Ixp = getattr(self, Ixkey)*scale
+            Iyp = getattr(self, Iykey)*scale
+            Rax.set_ylabel(self.loadlabel(Ixkey)+' mA')
+            Lax.set_ylabel(self.loadlabel(Iykey)+' mA')
+            Lax.axhline(0, ls= '--', color='gray', label='_hzero')
+            Rax.axhline(0, ls= '--', color='gray', label='_hzero')
+
+        
+        for i in range(0,na,step): #rear
+            kwargs['label']=labelplus+ykey+'={0:.1f}'.format(self.y[i])
+            Rax.plot(Vxp[i,:], Ixp[i,:],  **kwargs)
+            
+        for i in range(0,nb,step): #top
+            kwargs['label']=labelplus+xkey+'={0:.1f}'.format(self.x[i])
+            Lax.plot(Vyp[:,i], Iyp[:,i], **kwargs)  
+  
+        if inplots == None:
+            Rax.set_xlabel(self.loadlabel(Vxkey)+' V')
+            Lax.set_xlabel(self.loadlabel(Vykey)+' V')
+            Rax.axvline(0, ls= '--', color='gray', label='_vzero')
+            Lax.axvline(0, ls= '--', color='gray', label='_vzero')
+            Rax.legend(bbox_to_anchor=(1.05, 1))
+            Lax.legend(bbox_to_anchor=(1.05, 1)) 
+                
+        return Lax, Rax           
