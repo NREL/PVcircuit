@@ -1,11 +1,19 @@
 # pvcircuit 
-*pvcircuit* contains objects that are building blocks for PV modeling.
+*pvcircuit* contains objects that are building blocks for PV modeling and interactive data fitting.
 
 Based on publications:
 
-[J. F. Geisz, et al., IEEE Journal of Photovoltaics 5, p. 1827 (2015).](http://dx.doi.org/10.1109/JPHOTOV.2015.2478072)
+2 terminal multijunction model: 
+- [J. F. Geisz, et al., IEEE Journal of Photovoltaics 5, p. 1827 (2015).](http://dx.doi.org/10.1109/JPHOTOV.2015.2478072)
 
-[J. F. Geisz, et al., Cell Reports Physical Science 2, p. 100677 (2021).](https://doi.org/10.1016/j.xcrp.2021.100677)
+3 terminal tandem model: 
+- [J. F. Geisz, et al., Cell Reports Physical Science 2, p. 100677 (2021).](https://doi.org/10.1016/j.xcrp.2021.100677)
+
+Luminescent coupling correction of EQE: 
+- [M. A. Steiner, et al., IEEE Journal of Photovoltaics 3, p. 879 (2013).](http://dx.doi.org/10.1109/JPHOTOV.2012.2228298)
+
+Energy yield: 
+- [J. M. Ripalda, et al., Nature Communications 9, p. 5126 (2018).](http://dx.doi.org/10.1038/s41467-018-07431-3)
 
 ### Installation
 - install GitHub Desktop
