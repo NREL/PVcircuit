@@ -10,6 +10,7 @@ from time import time
 from functools import lru_cache
 import pandas as pd  #dataframes
 import numpy as np   #arrays
+from cycler import cycler
 import matplotlib.pyplot as plt   #plotting
 import matplotlib as mpl   #plotting
 from scipy.optimize import brentq    #root finder
@@ -22,6 +23,16 @@ from IPython.display import display
 from pvcircuit.junction import *
 from num2words import num2words
 import os, sys
+from pvcircuit.multi2T import *
+
+# colors
+junctioncolors = [  ['black'], #0J
+                    ['red'], #1J
+                    ['blue', 'red'], #2J
+                    ['blue', 'green', 'red'],  #3J
+                    ['blue', 'green', 'orange', 'red'], #4J
+                    ['purple', 'blue', 'green', 'orange', 'red'],  #5J
+                    ['purple', 'blue', 'green', 'black', 'orange', 'red']] #6J
 
 # constants
 k_q = con.k/con.e
@@ -478,11 +489,12 @@ class EQE(object):
     def plot(self, Pspec='global', ispec=0, specname=None, xspec=wvl):
         # plot EQE on top of a spectrum
         rnd2 =100
-        
+      
         fig, ax = plt.subplots()
+        ax.set_prop_cycle(color=Multi2T.junctioncolors[self.njuncs])
         for i in range(self.njuncs):
-            ax.plot(self.xEQE, self.rawEQE[:,i], lw=1, marker='', label='_'+self.sjuncs[i])
-            ax.plot(self.xEQE, self.corrEQE[:,i], lw=3, marker='', label=self.sjuncs[i])
+            rlns = ax.plot(self.xEQE, self.rawEQE[:,i], lw=1, ls='--', marker='', label='_'+self.sjuncs[i])
+            ax.plot(self.xEQE, self.corrEQE[:,i], lw=3, c=rlns[0].get_color(), marker='', label=self.sjuncs[i])
         ax.legend()
         ax.set_ylim(-0.1,1.1)      
         ax.set_xlim(math.floor(self.start/rnd2)*rnd2, math.ceil(self.stop/rnd2)*rnd2)
@@ -510,16 +522,6 @@ class EQE(object):
             rax.set_ylabel('Irradiance (W/m2/nm)')  # Add a y-label to the axes.
             rax.set_ylim(0,2)
             #rax.legend(loc=7)
-            '''
-            Jscs = self.Jint(Pspec=Pspec, xspec=xspec)
-            Jdbs, Egs = self.Jdb(25)
-            OP = PintMD(Pspec=Pspec, xspec=xspec)
-            stext=specname+'\n'+str(Jscs[0])+'mA/cm2\n'+str(OP)+'W/m2'
-            #rax.text(1000,0.6,stext,bbox=dict())
-            print(specname, OP, ' W/m2')
-            print('Eg = ',Egs, ' eV')
-            print('Jsc = ',Jscs, ' mA/cm2')
-            '''
         return ax, rax
         
     def controls(self, Pspec='global', ispec=0, specname=None, xspec=wvl):

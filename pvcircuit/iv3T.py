@@ -938,34 +938,40 @@ class IV3T(object):
         Vyp = getattr(self, Vykey)
         
         if log:
-            Ixp = np.log10(np.abs(getattr(self, Ixkey)*scale))
-            Iyp = np.log10(np.abs(getattr(self, Iykey)*scale))        
-            Rax.set_ylabel('log(|'+self.loadlabel(Ixkey)+' mA|)')
-            Lax.set_ylabel('log(|'+self.loadlabel(Iykey)+' mA|)')
+            #Ixp = np.log10(np.abs(getattr(self, Ixkey)*scale))
+            #Iyp = np.log10(np.abs(getattr(self, Iykey)*scale))        
+            Ixp = np.abs(getattr(self, Ixkey)*scale)
+            Iyp = np.abs(getattr(self, Iykey)*scale)        
+            Rax.set_ylabel('|'+self.loadlabel(Ixkey)+'| (mA)')
+            Lax.set_ylabel('|'+self.loadlabel(Iykey)+'| (mA)')
+            Rax.set_yscale('log')
+            Lax.set_yscale('log')
 
         else:
             Ixp = getattr(self, Ixkey)*scale
             Iyp = getattr(self, Iykey)*scale
-            Rax.set_ylabel(self.loadlabel(Ixkey)+' mA')
-            Lax.set_ylabel(self.loadlabel(Iykey)+' mA')
+            Rax.set_ylabel(self.loadlabel(Ixkey)+' (mA)')
+            Lax.set_ylabel(self.loadlabel(Iykey)+' (mA)')
             Lax.axhline(0, ls= '--', color='gray', label='_hzero')
             Rax.axhline(0, ls= '--', color='gray', label='_hzero')
 
         
+        Rax.set_prop_cycle(plt.rcParams['axes.prop_cycle'])  #reset color cycle
         for i in range(0,na,step): #rear
             kwargs['label']=labelplus+ykey+'={0:.1f}'.format(self.y[i])
             Rax.plot(Vxp[i,:], Ixp[i,:],  **kwargs)
             
+        Lax.set_prop_cycle(plt.rcParams['axes.prop_cycle'])  #reset color cycle
         for i in range(0,nb,step): #top
             kwargs['label']=labelplus+xkey+'={0:.1f}'.format(self.x[i])
             Lax.plot(Vyp[:,i], Iyp[:,i], **kwargs)  
   
         if inplots == None:
-            Rax.set_xlabel(self.loadlabel(Vxkey)+' V')
-            Lax.set_xlabel(self.loadlabel(Vykey)+' V')
+            Rax.set_xlabel(self.loadlabel(Vxkey)+' (V)')
+            Lax.set_xlabel(self.loadlabel(Vykey)+' (V)')
             Rax.axvline(0, ls= '--', color='gray', label='_vzero')
             Lax.axvline(0, ls= '--', color='gray', label='_vzero')
-            Rax.legend(bbox_to_anchor=(1.05, 1))
-            Lax.legend(bbox_to_anchor=(1.05, 1)) 
+        Rax.legend(bbox_to_anchor=(1.05, 1))
+        Lax.legend(bbox_to_anchor=(1.05, 1)) 
                 
         return Lax, Rax           

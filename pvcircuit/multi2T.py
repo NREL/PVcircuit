@@ -15,12 +15,20 @@ import scipy.constants as con   #physical constants
 import ipywidgets as widgets
 from IPython.display import display
 from pvcircuit.junction import *
-               
+
 class Multi2T(object): 
     '''
     Multi2T class for optoelectronic model of two terminal multijunction
     '''
     update_now = True 
+
+    junctioncolors = [  ['black'], #0J
+                        ['red'], #1J
+                        ['blue', 'red'], #2J
+                        ['blue', 'green', 'red'],  #3J
+                        ['blue', 'green', 'orange', 'red'], #4J
+                        ['purple', 'blue', 'green', 'orange', 'red'],  #5J
+                        ['purple', 'blue', 'green', 'black', 'orange', 'red']] #6J
     
     def __init__(self, name='Multi2T', TC=TC_REF, Rs2T=0., area=1., Jext=0.014, \
                   Eg_list=[1.8,1.4], n=[1,2], J0ratio = [10., 10.]):
@@ -34,9 +42,9 @@ class Multi2T(object):
         
         self.name = name
         self.Rs2T = Rs2T 
-        self.njunc = len(Eg_list)
-        CM = .03 / self.njunc
-        self.Vmid = np.full(self.njunc, np.nan, dtype=np.float64)   #subcell voltages
+        self.njuncs = len(Eg_list)
+        CM = .03 / self.njuncs
+        self.Vmid = np.full(self.njuncs, np.nan, dtype=np.float64)   #subcell voltages
         self.j = list()   #empty list of junctions
         for i, Eg in enumerate(Eg_list):
             jname='j['+str(i)+']'
@@ -105,7 +113,7 @@ class Multi2T(object):
         strout += '\nT = {0:.1f} C, Rs2T= {1:g} Ω cm2'\
             .format(self.TC,self.Rs2T)
             
-        for i in range(self.njunc):
+        for i in range(self.njuncs):
             strout += '\n\n'+str(self.j[i])
             
         return strout
@@ -176,7 +184,7 @@ class Multi2T(object):
         for key, value in kwargs.items():
             if key == 'name':
                 self.__dict__[key] = str(value)
-            elif key == 'njunc':
+            elif key == 'njuncs':
                 self.__dict__[key] = int(value)
             elif key == 'Vmid':
                 self.__dict__[key] = np.array(value)
@@ -191,7 +199,7 @@ class Multi2T(object):
         '''   
         
         I=np.float64(I)
-        for i in range(self.njunc):
+        for i in range(self.njuncs):
             if i > 0:    # previous LC
                 self.j[i].JLC = self.j[i].beta * self.j[i-1].Jem(self.Vmid[i-1])
                 if self.j[i-1].totalarea < self.j[i].totalarea: # distribute LC over total area
@@ -205,7 +213,7 @@ class Multi2T(object):
         Vtot = np.sum(self.Vmid) + self.Rs2T * I / self.totalarea
         
         if not math.isfinite(Vtot): #if one nan all nan
-            #for i in range(self.njunc): self.Vmid[i]=np.nan
+            #for i in range(self.njuncs): self.Vmid[i]=np.nan
             pass
             
         return Vtot
@@ -426,7 +434,7 @@ class Multi2T(object):
                         elif linelabel.startswith('n'):
                             line.set_data(Vdark, -Idark)
                     elif linelabel.find('junction') >= 0: # pjunction0, njunction0, etc
-                        for junc in range(self.njunc):
+                        for junc in range(self.njuncs):
                             if linelabel.endswith('junction'+str(junc)):
                                 if linelabel.startswith('p'):
                                     line.set_data(Vdarkmid[:, junc], Idark)
@@ -448,7 +456,7 @@ class Multi2T(object):
                     elif linelabel.find('points')  >= 0:
                         line.set_data(self.Vpoints,self.Ipoints*scale)
                     elif linelabel.find('junction') >= 0: # ljunction0, djunction0, etc
-                        for junc in range(self.njunc):
+                        for junc in range(self.njuncs):
                             if linelabel.endswith('junction'+str(junc)):
                                 if linelabel.startswith('d'):
                                     line.set_data(Vdarkmid[:, junc], Idark*scale)
@@ -539,7 +547,7 @@ class Multi2T(object):
 
         jui = []
         # list of junction controls
-        for i in range(self.njunc) :           
+        for i in range(self.njuncs) :           
             jui.append(self.j[i].controls())
             kids = jui[i].children
             for cntrl in kids:
@@ -570,10 +578,10 @@ class Multi2T(object):
         Idark = np.concatenate((Ifor,Irev),axis=None)
         dpnts = Idark.size  #redefine
         Vdark = np.full(dpnts, np.nan, dtype=np.float64) # Vtotal
-        Vdarkmid = np.full((dpnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
+        Vdarkmid = np.full((dpnts,self.njuncs), np.nan, dtype=np.float64) # Vmid[pnt, junc]
         for ii, I in enumerate(Idark):
             Vdark[ii] = self.V2T(I)  # also sets self.Vmid[i]
-            for junc in range(self.njunc):
+            for junc in range(self.njuncs):
                 Vdarkmid[ii,junc] = self.Vmid[junc] 
         self.set(Jext = Jext_list, JLC = 0.)  # turn lights back on but don't update controls
         te = time()
@@ -603,10 +611,10 @@ class Multi2T(object):
         IxI = np.linspace(-Imax, Imax*2, pnts)
         #VxI = V2Tvect(IxI)
         VxI = np.full(pnts, np.nan, dtype=np.float64) # Vtotal
-        VmidxI = np.full((pnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
+        VmidxI = np.full((pnts,self.njuncs), np.nan, dtype=np.float64) # Vmid[pnt, junc]
         for ii, I in enumerate(IxI):
             VxI[ii] = self.V2T(I)  # also sets self.Vmid[i]
-            for junc in range(self.njunc):
+            for junc in range(self.njuncs):
                 VmidxI[ii,junc] = self.Vmid[junc] 
         te = time()
         dsI=(te-ts)
@@ -622,10 +630,10 @@ class Multi2T(object):
             VxV = np.linspace(Vmin, Voc, pnts)
             #IxV = I2Tvect(VxV)
             IxV = np.full(pnts, np.nan, dtype=np.float64) # Vtotal
-            VmidxV = np.full((pnts,self.njunc), np.nan, dtype=np.float64) # Vmid[pnt, junc]
+            VmidxV = np.full((pnts,self.njuncs), np.nan, dtype=np.float64) # Vmid[pnt, junc]
             for ii, V in enumerate(VxV):
                 IxV[ii] = self.I2T(V)  # also sets self.Vmid[i]
-                for junc in range(self.njunc):
+                for junc in range(self.njuncs):
                     VmidxV[ii,junc] = self.Vmid[junc] 
             te = time()
             dsV=(te-ts)
@@ -639,7 +647,7 @@ class Multi2T(object):
             Vlight = Vboth[p]
             Ilight = Iboth[p]
             Vlightmid = []
-            for junc in range(self.njunc):
+            for junc in range(self.njuncs):
                 Vlightmid.append(np.take_along_axis(Vbothmid[:,junc], p, axis=0))
             Vlightmid = np.transpose(np.array(Vlightmid))
        
@@ -685,9 +693,10 @@ class Multi2T(object):
         if dark:
             #dark plot
             dfig, dax = plt.subplots()
+            dax.set_prop_cycle(color=self.junctioncolors[self.njuncs])
             for junc in range(Vdarkmid.shape[1]):  #plot Vdiode of each junction
-                dax.plot(Vdarkmid[:, junc], Idark, lw=2, label='pjunction'+str(junc))
-                dax.plot(Vdarkmid[:, junc], -Idark, lw=2, label='njunction'+str(junc))
+                plns = dax.plot(Vdarkmid[:, junc], Idark, lw=2, label='pjunction'+str(junc))
+                dax.plot(Vdarkmid[:, junc], -Idark, lw=2, c=plns[0].get_color(), label='njunction'+str(junc))
   
             dax.plot(Vdark, Idark, lw=2, c='black', label='pdark')  #IV curve
             dax.plot(Vdark, -Idark, lw=2, c='black', label='ndark')  #IV curve
@@ -705,12 +714,13 @@ class Multi2T(object):
         else:
             # light plot        
             lfig, lax = plt.subplots()
-            if self.njunc > 1:
-                for junc in range(self.njunc):  #plot Vdiode of each junction
-                    lax.plot(Vdarkmid[:, junc], Idark*scale, marker='',ls='-', label='djunction'+str(junc))
-                    lax.plot(Vlightmid[:, junc], Ilight*scale, marker='',ls='-', label='ljunction'+str(junc))
+            lax.set_prop_cycle(color=self.junctioncolors[self.njuncs])
+            if self.njuncs > 1:
+                for junc in range(self.njuncs):  #plot Vdiode of each junction
+                    dlns = lax.plot(Vdarkmid[:, junc], Idark*scale, marker='',ls='--', label='djunction'+str(junc))
+                    lax.plot(Vlightmid[:, junc], Ilight*scale, marker='',ls='-', c=dlns[0].get_color(), label='ljunction'+str(junc))
                 
-            lax.plot(Vdark, Idark*scale, lw=2, c='black', label='dark')  # dark IV curve
+            lax.plot(Vdark, Idark*scale, lw=2, ls='--', c='black', label='dark')  # dark IV curve
             lax.plot(Vlight, Ilight*scale, lw=2, c='black', label='light')  #IV curve         
             lax.plot(self.Vpoints,self.Ipoints*scale,\
                     marker='x',ls='', ms=12, c='black', label='points')  #special points

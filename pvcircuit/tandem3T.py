@@ -878,9 +878,9 @@ class Tandem3T(object):
                 Vcalc = True
                 Icalc = True
                 Dcalc = True
-            elif desc == 'V(I)':
+            elif desc == 'P(I)':
                 Vcalc = True
-            elif desc == 'I(V)':
+            elif desc == 'P(V)':
                 Icalc = True
             elif desc == 'dark':
                 Dcalc = True
@@ -1014,7 +1014,7 @@ class Tandem3T(object):
 
             tD = time()
 
-            with VoutBox:   print('points{0:>6.2f}; V(I){1:>6.2f}; I(V){2:>6.2f}; dark{3:>6.2f} s'.format((tmp-ts), (tI-tmp), (tV-tI), (tD-tV))) 
+            with VoutBox:   print('points{0:>6.2f}; P(I){1:>6.2f}; P(V){2:>6.2f}; dark{3:>6.2f} s'.format((tmp-ts), (tI-tmp), (tV-tI), (tD-tV))) 
 
         # Tandem 3T controls
         in_tit = widgets.Label(value='Tandem3T: ', description='title')
@@ -1025,9 +1025,9 @@ class Tandem3T(object):
             tooltip='slowest calculations')
         in_Dbut = widgets.Button(description = 'dark', button_style='success', 
             tooltip='slow calculations')
-        in_Ibut = widgets.Button(description = 'I(V)', button_style='success', 
+        in_Ibut = widgets.Button(description = 'P(V)', button_style='success', 
             tooltip='slow calculations')
-        in_Vbut = widgets.Button(description = 'V(I)', button_style='success', 
+        in_Vbut = widgets.Button(description = 'P(I)', button_style='success', 
             tooltip='moderately fast calculations')
         in_Mbut = widgets.Button(description = 'MPPcalc', button_style='success', 
             tooltip='fairly quick calculations')
@@ -1101,9 +1101,11 @@ class Tandem3T(object):
             IdataMPP = Idata3T.MPP()
         else:
             Iax, Iobjs = Ifit3T.plot(cmap=None, ccont='red', **Iargs)
-            
+        
+        Iax.set(title='P(I)')    
         fitsp.addpoints(Iax, Iargs['xkey'], Iargs['ykey'], density=Iargs['density'], **pltargs)
         Ifig = Iax.get_figure()
+        Ifig.set_figheight(4)
         with Rout: Ifig.show()
 
         ######## initial plots: Vdata and Vfit ##########
@@ -1152,13 +1154,17 @@ class Tandem3T(object):
         else:
             Vax, Vobjs = Vfit3T.plot(cmap=None, ccont='red', **Vargs)
             
+        Vax.set(title='P(V)')    
         fitsp.addpoints(Vax, Vargs['xkey'], Vargs['ykey'], density=Vargs['density'], **pltargs)
         Vfig = Vax.get_figure()
+        Vfig.set_figheight(4)
         with Lout: Vfig.show()
         
         ######## initial plots: darkData and darkFit ##########
         if darkData3T:
             Lax, Rax = darkData3T.plotIVslice(step = 2, log=True) #plot dark data
+            Lax.set(title = 'Top coupled dark I(V)')
+            Rax.set(title = 'Bottom coupled dark I(V)')
             #create dark fit
             darkFit3T =  darkData3T.copy()
             darkFit3T.set(name = self.name+'_darkfit')
@@ -1172,6 +1178,8 @@ class Tandem3T(object):
                 darkFit3T.plotIVslice(step = 2, log=True, inplots = (Lax, Rax), labelplus='_fit')
                 self.top.Jext = Jtop   #make light again
                 self.bot.Jext = Jbot
+            Lax.get_figure().set_figheight(4)
+            Rax.get_figure().set_figheight(4)
             with Lout: Lax.get_figure().show()
             with Rout: Rax.get_figure().show()
         else:
