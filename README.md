@@ -414,6 +414,9 @@ Hexagonal representation of 3 device parameters in 2 dimensions.
 ### IV3T.shape
 Shape of numpy.array that contains array points of IV3T object. *tuple* either 1D ie. (npts,) or 2D (xpnts, ypnts)
 
+### IV3T.area
+*float* cell area used to calculate current density or power density from current or power
+
 ### IV3T.xkey
 *string* Name of the arraykey that is systematically varied.
 
@@ -543,7 +546,7 @@ Object to contain all EQE information
 *int* number of junctions
 
 ### EQE.sjuncs 
-*int* names of junctions
+*str* names of junctions used in plot legend
 
 ### EQE.nQlams 
 *int* number of wavelengths in rawEQE data
