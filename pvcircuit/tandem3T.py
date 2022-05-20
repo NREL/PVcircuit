@@ -34,6 +34,10 @@ class Tandem3T(object):
         update_now = False
         
         self.ui = None      
+        self.Vax = None      
+        self.Iax = None      
+        self.Rax = None      
+        self.Lax = None      
         self.debugout = widgets.Output() # debug output
         
         # set attributes
@@ -81,7 +85,7 @@ class Tandem3T(object):
         for junc in [self.top, self.bot]:   #two junctions
             junc.update()
         
-        if self.ui:  # Multi2T user interface has been created
+        if self.ui:  # Tandem3T user interface has been created
             Boxes = self.ui.children
             for cntrl in Boxes[2].children: #Multi2T controls
                 desc = cntrl._trait_values.get('description','nodesc')  #does not fail when not present
@@ -474,6 +478,9 @@ class Tandem3T(object):
         '''
         create VM constrained line for tandem3T
         '''
+        if bot == 0 or top == 0:
+            return self.CM(pnts = pnts)
+            
         sbot=str(bot)
         stop=str(top)
         name = 'VM' + sbot + stop
@@ -509,11 +516,24 @@ class Tandem3T(object):
         ind = []
         for i, Ptot in enumerate(lnout.Ptot.flat):
             if (math.isfinite(Ptot)):
-                if (Ptot < 0.): ind.append(i)   # negative
+                if (Ptot/lnout.area < -0.0): ind.append(i)   # negative
             else:   #not finite
-                ind.append[i]  
+                ind.append(i)  
         lnout.delete(ind) # delete extraneous points from lnout
         MPP = lnout.MPP(name)  #single MPP point in IV3T space
+        
+        #plot if possible
+        pltargs={'lw':0, 'ms':7, 'mew':1, 'mec':'black', 'marker':'o', 'zorder':5}
+        pltargs['label']=name
+        if self.Vax:
+            ln = lnout.addpoints(self.Vax,'VA','VB')  # let cycler choose color
+            c = ln.get_color()
+            MPP.addpoints(self.Vax,'VA','VB', c=c, **pltargs)
+            #self.Vax.legend()
+        if self.Iax:
+            lnout.addpoints(self.Iax,'IA','IB', c=c)
+            MPP.addpoints(self.Iax,'IA','IB', c=c, **pltargs)
+            #self.Iax.legend()
           
         return lnout, MPP
 
@@ -526,10 +546,11 @@ class Tandem3T(object):
         Isc3 = self.Isc3(meastype)  # find triple Voc point
         ln = IV3T(name=name, meastype = meastype, area=self.lightarea)
         lnout = IV3T(name=name, shape=0, meastype = meastype, area=self.lightarea)
-        sign = np.sign(Isc3.Iro[0]/Isc3.Ito[0])
         x0 = 0
-        yconstraint = 'x'+ ' * (' + str(sign) + ')'
-        if (abs(Isc3.Iro[0]) > abs(Isc3.Ito[0]) ):
+        #sign = -1   #np.sign(Isc3.Iro[0]/Isc3.Ito[0])
+        #yconstraint = 'x'+ ' * (' + str(sign) + ')'
+        yconstraint = '-x'
+        if (abs(Isc3.Iro[0]) < abs(Isc3.Ito[0]) ):
             xkey = 'Ito'
             x1 = Isc3.Ito[0]
             ykey = 'Iro'
@@ -553,12 +574,23 @@ class Tandem3T(object):
         ind = []
         for i, Ptot in enumerate(lnout.Ptot.flat):
             if (math.isfinite(Ptot)):
-                if (Ptot < 0.): ind.append(i)   # negative
+                if (Ptot/lnout.area < -0.00): ind.append(i)   # negative
             else:   #not finite
-                ind.append[i]  
+                ind.append(i)
         lnout.delete(ind) # delete extraneous points from lnout
         MPP = lnout.MPP(name)  #single MPP point in IV3T space
-                
+        
+        #plot if possible
+        pltargs={'lw':0, 'ms':7, 'mew':1, 'mec':'black', 'marker':'o', 'zorder':5}
+        pltargs['label']=name
+        if self.Vax:
+            ln = lnout.addpoints(self.Vax,'VA','VB', label='ln_'+name)  # let cycler choose color
+            c = ln.get_color()
+            MPP.addpoints(self.Vax,'VA','VB', c=c, **pltargs)
+        if self.Iax:
+            lnout.addpoints(self.Iax,'IA','IB', c=c, label='ln_'+name)
+            MPP.addpoints(self.Iax,'IA','IB', c=c, **pltargs)
+                          
         return lnout, MPP
     
     def MPP(self, pnts=31, VorI= 'I', less = 2., bplot=False):
@@ -704,9 +736,15 @@ class Tandem3T(object):
             ### does not work for r-type since Multi2T ignore pn #####
             pt.Izo[0] = 0.  # series-connected 2T
             pt.Vtr[0] = 0.
-            dev2T = Multi2T.copy3T(self)
-            pt.Iro[0] = dev2T.I2T(pt.Vtr[0])
-            pt.Ito[0] = -pt.Iro[0]
+            if self.top.pn == self.bot.pn: #r-type
+                #pt=self.VIpoint('Izo','Ito','Vtr',meastype=meastype, bplot=True)
+                #pt=self.VIpoint('Vtr','Vzt','Izo',meastype=meastype, bplot=True)
+                #pt=self.VIpoint('Vtr','Vrz','Izo',meastype=meastype)
+                pt.nanpnt(0)
+            else:  #s-type
+                dev2T = Multi2T.copy3T(self)
+                pt.Iro[0] = dev2T.I2T(pt.Vtr[0])
+                pt.Ito[0] = -pt.Iro[0]
             self.V3T(pt)   # calc Vs from Is
             
         else:
@@ -784,7 +822,8 @@ class Tandem3T(object):
             
         yp = getattr(pt, crosskey)
         if not math.isclose(yp[0], 0., abs_tol=1e-3):  # test if it worked
-            pt.nanpnt(0)
+            #pt.nanpnt(0)
+            pass
 
         te = time()
         dt=(te-ts)
@@ -827,7 +866,7 @@ class Tandem3T(object):
         
         return sp
         
-    def controls(self, Vdata3T=None, Idata3T=None, darkData3T=None, hex=False, meastype='CZ',
+    def controls(self, Vdata3T=None, Idata3T=None, darkData3T=None, hex=False, meastype='CZ', size='x-large',
                     Iargs = {'xkey':'IA', 'ykey':'IB', 'zkey':'Ptot','density':True},
                     Vargs = {'xkey':'VA', 'ykey':'VB', 'zkey':'Ptot','density':True}):
         '''
@@ -1101,8 +1140,11 @@ class Tandem3T(object):
             IdataMPP = Idata3T.MPP()
         else:
             Iax, Iobjs = Ifit3T.plot(cmap=None, ccont='red', **Iargs)
-        
-        Iax.set(title='P(I)')    
+
+
+        self.Iax = Iax        
+        Iax.set_title('P(I)', size=size)
+        #Iax.set(title='P(I)')    
         fitsp.addpoints(Iax, Iargs['xkey'], Iargs['ykey'], density=Iargs['density'], **pltargs)
         Ifig = Iax.get_figure()
         Ifig.set_figheight(4)
@@ -1154,7 +1196,9 @@ class Tandem3T(object):
         else:
             Vax, Vobjs = Vfit3T.plot(cmap=None, ccont='red', **Vargs)
             
-        Vax.set(title='P(V)')    
+        self.Vax = Vax            
+        Vax.set_title('P(V)', size=size)
+        #Vax.set(title='P(V)')    
         fitsp.addpoints(Vax, Vargs['xkey'], Vargs['ykey'], density=Vargs['density'], **pltargs)
         Vfig = Vax.get_figure()
         Vfig.set_figheight(4)
@@ -1163,8 +1207,10 @@ class Tandem3T(object):
         ######## initial plots: darkData and darkFit ##########
         if darkData3T:
             Lax, Rax = darkData3T.plotIVslice(step = 2, log=True) #plot dark data
-            Lax.set(title = 'Top coupled dark I(V)')
-            Rax.set(title = 'Bottom coupled dark I(V)')
+            self.Lax = Lax
+            self.Rax = Rax
+            Lax.set_title('Top coupled dark I(V)', size=size)
+            Rax.set_title('Bottom coupled dark I(V)', size=size)
             #create dark fit
             darkFit3T =  darkData3T.copy()
             darkFit3T.set(name = self.name+'_darkfit')

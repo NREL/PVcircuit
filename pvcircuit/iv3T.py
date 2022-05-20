@@ -716,7 +716,7 @@ class IV3T(object):
    
     def plot(self, xkey = None, ykey = None, zkey = 'Ptot',
                 inplot = None, cmap='terrain', ccont = 'black', 
-                bar = True, log=False, density=False):
+                bar = True, log=False, density=False, size='x-large'):
         '''
         plot 2D IV3T object
             zkey(xkey,ykey) 
@@ -748,7 +748,7 @@ class IV3T(object):
         VorI = xkey[0]
         if VorI == 'I':
             if density:
-                unit = ' (mA/cm2)'
+                unit = r' (mA/cm2)'
                 scale = 1000./self.area
             else:
                 unit = ' (mA)'
@@ -762,7 +762,7 @@ class IV3T(object):
         z0 = zkey[0] 
         if z0 == 'P':
             if density:
-                zlab = 'Power (mW/cm2)'
+                zlab = r'Power (mW/cm2)'
                 zscale = 1000./self.area
             else:
                 zlab = 'Power (mW)'
@@ -770,7 +770,7 @@ class IV3T(object):
             lstep = 5.
         elif z0 == 'I':
             if density:
-                zlab = zkey + ' (mA/cm2)'
+                zlab = zkey + r" (mA/cm2)"
                 zscale = 1000./self.area
             else:
                 zlab = zkey + ' (mA)'
@@ -831,8 +831,8 @@ class IV3T(object):
                 self.hexgrid(ax, VorI, step) 
             else:
                 # cartisian coordinates   
-                ax.set_xlabel(self.loadlabel(xkey) + unit)  # Add an x-label to the axes.
-                ax.set_ylabel(self.loadlabel(ykey) + unit)  # Add a y-label to the axes.
+                ax.set_xlabel(self.loadlabel(xkey) + unit, size=size)  # Add an x-label to the axes.
+                ax.set_ylabel(self.loadlabel(ykey) + unit, size=size)  # Add a y-label to the axes.
                 ax.axhline(0, ls= '--', color='gray', label='_hzero')
                 ax.axvline(0, ls= '--', color='gray', label='_vzero')
 
@@ -880,7 +880,6 @@ class IV3T(object):
                         
         return ax, objs #fig = ax.get_figure()
         
-    #def addpoints(self, ax, colors='black', xkey='VA', ykey='VB', lines=False, label='iv3Tpnts'):
     def addpoints(self, ax, xkey, ykey, density=True, **kwargs):
         #add iv3T points to existing axes 
         VorI = xkey[0]
@@ -893,17 +892,10 @@ class IV3T(object):
             scale = 1.
         xp = getattr(self, xkey) * scale
         yp = getattr(self, ykey) * scale
-        ax.plot(xp, yp, **kwargs)
-        '''
-        if lines:
-            #ax.plot(xp, yp, lw=2, c=colors, label=label)
-            ax.plot(xp, yp, lw=0, marker='o', c=colors, label=label)
-        else:  # scatter does not have data too complicated      
-            ax.scatter(xp, yp, marker='o', s=150, c=colors[:len(xp)], edgecolors='black', \
-                linewidths = 2, zorder=5, label=label)
-        '''
+        lns = ax.plot(xp, yp, **kwargs)
+        return lns[0]   #return first line
 
-    def plotIVslice(self, step = 2, log=True, inplots = None, labelplus=''):
+    def plotIVslice(self, step = 2, log=True, inplots = None, labelplus='', size='x-large'):
         # plot iv slices through box iv3T data
         if len(self.shape) == 2:
             na, nb = self.shape
@@ -942,16 +934,16 @@ class IV3T(object):
             #Iyp = np.log10(np.abs(getattr(self, Iykey)*scale))        
             Ixp = np.abs(getattr(self, Ixkey)*scale)
             Iyp = np.abs(getattr(self, Iykey)*scale)        
-            Rax.set_ylabel('|'+self.loadlabel(Ixkey)+'| (mA)')
-            Lax.set_ylabel('|'+self.loadlabel(Iykey)+'| (mA)')
+            Rax.set_ylabel('|'+self.loadlabel(Ixkey)+'| (mA)', size=size)
+            Lax.set_ylabel('|'+self.loadlabel(Iykey)+'| (mA)', size=size)
             Rax.set_yscale('log')
             Lax.set_yscale('log')
 
         else:
             Ixp = getattr(self, Ixkey)*scale
             Iyp = getattr(self, Iykey)*scale
-            Rax.set_ylabel(self.loadlabel(Ixkey)+' (mA)')
-            Lax.set_ylabel(self.loadlabel(Iykey)+' (mA)')
+            Rax.set_ylabel(self.loadlabel(Ixkey)+' (mA)', size=size)
+            Lax.set_ylabel(self.loadlabel(Iykey)+' (mA)', size=size)
             Lax.axhline(0, ls= '--', color='gray', label='_hzero')
             Rax.axhline(0, ls= '--', color='gray', label='_hzero')
 
@@ -967,8 +959,8 @@ class IV3T(object):
             Lax.plot(Vyp[:,i], Iyp[:,i], **kwargs)  
   
         if inplots == None:
-            Rax.set_xlabel(self.loadlabel(Vxkey)+' (V)')
-            Lax.set_xlabel(self.loadlabel(Vykey)+' (V)')
+            Rax.set_xlabel(self.loadlabel(Vxkey)+' (V)', size=size)
+            Lax.set_xlabel(self.loadlabel(Vykey)+' (V)', size=size)
             Rax.axvline(0, ls= '--', color='gray', label='_vzero')
             Lax.axvline(0, ls= '--', color='gray', label='_vzero')
         Rax.legend(bbox_to_anchor=(1.05, 1))

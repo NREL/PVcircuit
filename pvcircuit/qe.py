@@ -486,7 +486,7 @@ class EQE(object):
             Jintegral[:,:,ijunc] = Pspec[n0:n1+1,:] * EQEfine[:, np.newaxis, ijunc]
         return np.trapz(Jintegral, x=xrange, axis=0)     
     
-    def plot(self, Pspec='global', ispec=0, specname=None, xspec=wvl):
+    def plot(self, Pspec='global', ispec=0, specname=None, xspec=wvl, size='x-large'):
         # plot EQE on top of a spectrum
         rnd2 =100
       
@@ -498,8 +498,9 @@ class EQE(object):
         ax.legend()
         ax.set_ylim(-0.1,1.1)      
         ax.set_xlim(math.floor(self.start/rnd2)*rnd2, math.ceil(self.stop/rnd2)*rnd2)
-        ax.set_ylabel('EQE')  # Add a y-label to the axes.
-        ax.set_xlabel('Wavelength (nm)')  # Add an x-label to the axes.
+        ax.set_ylabel('EQE', size=size)  # Add a y-label to the axes.
+        ax.set_xlabel('Wavelength (nm)', size=size)  # Add an x-label to the axes.
+        ax.set_title(self.name + ' EQE', size=size)
         ax.axhline(0, lw=0.5, ls='--', c='black', label='_hzero')
         ax.axhline(1, lw=0.5, ls='--', c='black', label='_hone')
 
@@ -519,7 +520,7 @@ class EQE(object):
             if Pspec.ndim == 2: Pspec = Pspec[:,ispec] #slice 2D numpy to 1D
             rax.fill_between(xspec, Pspec, step="mid", alpha=0.2, color='grey', label='fill')
             rax.plot(xspec, Pspec, c='grey', lw=0.5, marker='', label=specname)
-            rax.set_ylabel('Irradiance (W/m2/nm)')  # Add a y-label to the axes.
+            rax.set_ylabel('Irradiance (W/m2/nm)', size=size)  # Add a y-label to the axes.
             rax.set_ylim(0,2)
             #rax.legend(loc=7)
         return ax, rax

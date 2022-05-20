@@ -658,7 +658,7 @@ class Multi2T(object):
         return Vlight, Ilight, Plight, Vlightmid, MPP
 
     def plot(self,title='', pplot=False, dark=None, pnts=21,
-            Vmin= -0.5, lolog = -8, hilog = 7, pdec = 5):
+            Vmin= -0.5, lolog = -8, hilog = 7, pdec = 5, size='x-large'):
         #plot a light IV of Multi2T
         
         Jext_list = self.proplist('Jext') #remember list external photocurrents 
@@ -705,9 +705,9 @@ class Multi2T(object):
             dax.set_autoscaley_on(True)  
             dax.set_xlim(Vmin, Egmax*1.1)
             dax.grid(color='gray')
-            dax.set_title(title + ' Dark')  # Add a title to the axes.
-            dax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
-            dax.set_ylabel('Current (A)')  # Add a y-label to the axes.
+            dax.set_title(self.name + ' Dark', size=size)  # Add a title to the axes.
+            dax.set_xlabel('Voltage (V)', size=size)  # Add an x-label to the axes.
+            dax.set_ylabel('Current (A)', size=size)  # Add a y-label to the axes.
             #dax.legend()
             return dfig, dax
      
@@ -730,9 +730,9 @@ class Multi2T(object):
                 laxr.set_ylabel('Power (mW)',c='cyan')
             lax.set_xlim( (Vmin-0.1), max(min(Egmax,Voc*1.1),0.1))
             lax.set_ylim(-Imax*1.5*scale,Imax*1.5*scale)
-            lax.set_title(title + ' Light')  # Add a title to the axes.
-            lax.set_xlabel('Voltage (V)')  # Add an x-label to the axes.
-            lax.set_ylabel('Current (mA)')  # Add a y-label to the axes.
+            lax.set_title(self.name + ' Light', size=size)  # Add a title to the axes.
+            lax.set_xlabel('Voltage (V)', size=size)  # Add an x-label to the axes.
+            lax.set_ylabel('Current (mA)', size=size)  # Add a y-label to the axes.
             lax.axvline(0, ls='--', c='gray', label='_vline')
             lax.axhline(0, ls='--', c='gray', label='_hline')
             #lax.legend()
