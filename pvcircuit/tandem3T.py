@@ -1143,7 +1143,7 @@ class Tandem3T(object):
 
 
         self.Iax = Iax        
-        Iax.set_title('P(I)', size=size)
+        Iax.set_title('Light P(I)', size=size)
         #Iax.set(title='P(I)')    
         fitsp.addpoints(Iax, Iargs['xkey'], Iargs['ykey'], density=Iargs['density'], **pltargs)
         Ifig = Iax.get_figure()
@@ -1197,7 +1197,7 @@ class Tandem3T(object):
             Vax, Vobjs = Vfit3T.plot(cmap=None, ccont='red', **Vargs)
             
         self.Vax = Vax            
-        Vax.set_title('P(V)', size=size)
+        Vax.set_title('Light P(V)', size=size)
         #Vax.set(title='P(V)')    
         fitsp.addpoints(Vax, Vargs['xkey'], Vargs['ykey'], density=Vargs['density'], **pltargs)
         Vfig = Vax.get_figure()
