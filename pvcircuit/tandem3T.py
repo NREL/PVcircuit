@@ -1115,7 +1115,7 @@ class Tandem3T(object):
             #self.V3T(Ifit3T)  #fast enough
         else:
             Ifit3T = IV3T(name = self.name+'_Ifit', meastype=meastype, area=self.lightarea)
-            Ifit3T.box(Iargs[xkey],-Imax, Imax, pnts, Iargs[xkey], -Imax, Imax, pnts)
+            Ifit3T.box(Iargs['xkey'],-Imax, Imax, pnts, Iargs['ykey'], -Imax, Imax, pnts)
             #Ifit3T.box('IA',-Imax, Imax, pnts, 'IB', -Imax, Imax, pnts)
             Ifit3T.convert(RVorI, 'load2dev') 
             #self.V3T(Ifit3T)  #fast enough
@@ -1168,7 +1168,7 @@ class Tandem3T(object):
                 pass
         else:
             Vfit3T = IV3T(name = self.name+'_Vfit', meastype=meastype, area=self.lightarea)
-            Vfit3T.box(Vargs[xkey],-Vmax, Vmax, pnts, Vargs[ykey], -Vmax, Vmax, pnts)
+            Vfit3T.box(Vargs['xkey'],-Vmax, Vmax, pnts, Vargs['ykey'], -Vmax, Vmax, pnts)
             #Vfit3T.box('VA',-Vmax, Vmax, pnts, 'VB', -Vmax, Vmax, pnts)
             Vfit3T.convert(LVorI, 'load2dev') 
             #self.I3Trel(Vfit3T)    #necessary
