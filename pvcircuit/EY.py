@@ -33,7 +33,7 @@ from pprint import pprint
 vectoriam = np.vectorize(physicaliam)
 GITpath = os.path.dirname(pvcpath)
 RIPpath = os.path.join(GITpath, 'Tandems')  #assuming 'Tandems' is in parallel GitHub folders
-FARMpath = os.path.join(RIPpath, 'FARMS-NIT-clustered-spectra-USA/')
+FARMpath = os.path.join(RIPpath, 'FARMS-NIT-clustered-spectra-USA','')
 
 #RIPpath = datapath.replace('/PVcircuit/data/','/Tandems/')  #assuming 'Tandems' is in parallel GitHub folders
 #FARMpath = RIPpath+"FARMS-NIT-clustered-spectra-USA/" #posix only

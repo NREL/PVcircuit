@@ -46,7 +46,7 @@ DBWVL_PREFIX = 2. * np.pi * con.c * con.e / 100 / 100 #A/cm2
 
 # standard data
 pvcpath = os.path.dirname(os.path.dirname(__file__))  
-datapath = os.path.join(pvcpath, 'data/') # Data files here
+datapath = os.path.join(pvcpath, 'data','') # Data files here
 #datapath = os.path.abspath(os.path.relpath('../data/', start=__file__))
 #datapath = pvcpath.replace('/pvcircuit','/data/')
 ASTMfile = os.path.join(datapath,'ASTMG173.csv')
