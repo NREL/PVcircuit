@@ -848,7 +848,7 @@ class IV3T(object):
 
 
         if cmap: #don't add image if cmap == None
-            cmap = plt.cm.get_cmap(cmap)  # start with existing cmap
+            cmap = copy.copy(plt.cm.get_cmap(cmap))  # start with existing cmap
             cmap.set_under(color='white')  # white for Ptot < 0 and nan
             if xkey == self.xkey and ykey == self.ykey:
                 #image if evenly spaced

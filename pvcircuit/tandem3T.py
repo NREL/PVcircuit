@@ -123,10 +123,10 @@ class Tandem3T(object):
         for key, value in kwargs.items():
             if key == 'name':
                 self.__dict__[key] = str(value)
-            elif key == 'njunc':
-                self.__dict__[key] = int(value)
-            elif key == 'Vmid':
-                self.__dict__[key] = np.array(value)
+            #elif key == 'njunc':
+            #    self.__dict__[key] = int(value)
+            #elif key == 'Vmid':
+            #    self.__dict__[key] = np.array(value)
             elif key in ['top', 'bot', 'update_now']: 
                 self.__dict__[key] = value
             elif key in ['Rz']:
