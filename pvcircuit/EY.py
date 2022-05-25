@@ -31,8 +31,12 @@ from pprint import pprint
 
 #  from 'Tandems' project
 vectoriam = np.vectorize(physicaliam)
-RIPpath = datapath.replace('/PVcircuit/data/','/Tandems/')  #assuming 'Tandems' is in parallel GitHub folders
-FARMpath = RIPpath+"FARMS-NIT-clustered-spectra-USA/"
+GITpath = os.path.dirname(pvcpath)
+RIPpath = os.path.join(GITpath, 'Tandems')  #assuming 'Tandems' is in parallel GitHub folders
+FARMpath = os.path.join(RIPpath, 'FARMS-NIT-clustered-spectra-USA/')
+
+#RIPpath = datapath.replace('/PVcircuit/data/','/Tandems/')  #assuming 'Tandems' is in parallel GitHub folders
+#FARMpath = RIPpath+"FARMS-NIT-clustered-spectra-USA/" #posix only
 
 #list of data locations
 clst_axis = glob.glob(FARMpath + "*axis.clusters.npz")
@@ -140,7 +144,9 @@ class TMY(object):
         
         self.tilt=tilt
         self.index = i
-        self.name =  clst[i].split("/")[-1][:-13]
+        head, tail =  os.path.split(clst[i])
+        self.name = tail.replace('.clusters.npz','')
+        #self.name =  clst[i].split("/")[-1][:-13]  #posix only
         self.longitude = float(self.name.split('_')[1])
         self.latitude = float(self.name.split('_')[0])
         self.altitude = float(self.name.split('_')[2])

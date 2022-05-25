@@ -40,6 +40,7 @@ Multi2T = multi2T.Multi2T
 IV3T = iv3T.IV3T
 Tandem3T = tandem3T.Tandem3T
 
+pvcpath = qe.pvcpath
 datapath = qe.datapath
 JdbFromEg = qe.JdbFromEg
 EgFromJdb = qe.EgFromJdb

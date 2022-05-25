@@ -22,7 +22,7 @@ import ipywidgets as widgets
 from IPython.display import display
 from pvcircuit.junction import *
 from num2words import num2words
-import os, sys
+import os
 from pvcircuit.multi2T import *
 
 # colors
@@ -45,15 +45,23 @@ DBWVL_PREFIX = 2. * np.pi * con.c * con.e / 100 / 100 #A/cm2
 
 
 # standard data
-pvcpath = os.path.dirname(__file__)  # Data files here
-datapath = pvcpath.replace('/pvcircuit','/data/')
-dfrefspec = pd.read_csv(datapath+'ASTMG173.csv', index_col=0, header=2)
-wvl=dfrefspec.index.to_numpy(dtype=np.float64, copy=True)
-refspec = dfrefspec.to_numpy(dtype=np.float64, copy=True)  #all three reference spectra
-refnames = ['space','global','direct']
-AM0 = refspec[:,0]  #dfrefspec['space'].to_numpy(dtype=np.float64, copy=True)  # 1348.0 W/m2
-AM15G = refspec[:,1]  #dfrefspec['global'].to_numpy(dtype=np.float64, copy=True) # 1000.5 W/m2
-AM15D = refspec[:,2]  #dfrefspec['direct'].to_numpy(dtype=np.float64, copy=True) # 900.2 W/m2
+pvcpath = os.path.dirname(os.path.dirname(__file__))  
+datapath = os.path.join(pvcpath, 'data/') # Data files here
+#datapath = os.path.abspath(os.path.relpath('../data/', start=__file__))
+#datapath = pvcpath.replace('/pvcircuit','/data/')
+ASTMfile = os.path.join(datapath,'ASTMG173.csv')
+try:
+    dfrefspec = pd.read_csv(ASTMfile, index_col=0, header=2)
+    wvl=dfrefspec.index.to_numpy(dtype=np.float64, copy=True)
+    refspec = dfrefspec.to_numpy(dtype=np.float64, copy=True)  #all three reference spectra
+    refnames = ['space','global','direct']
+    AM0 = refspec[:,0]  #dfrefspec['space'].to_numpy(dtype=np.float64, copy=True)  # 1348.0 W/m2
+    AM15G = refspec[:,1]  #dfrefspec['global'].to_numpy(dtype=np.float64, copy=True) # 1000.5 W/m2
+    AM15D = refspec[:,2]  #dfrefspec['direct'].to_numpy(dtype=np.float64, copy=True) # 900.2 W/m2
+except:
+    print(pvcpath)
+    print(datapath)
+    print(ASTMfile)
 
 def JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False):
     '''

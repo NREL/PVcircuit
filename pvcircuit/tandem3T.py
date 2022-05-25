@@ -890,6 +890,9 @@ class Tandem3T(object):
         pnts = 71
         pltargs={'lw':0, 'ms':7, 'mew':1, 'mec':'black', 'mfc':'white', 'marker':'o', 'c':'red', 'label':'fitsp', 'zorder':5}
         dsun = [1e-9,1e-10] # dark suns                         
+        dpnts = 21
+        dlo = -14
+        dhi = 2
 
         def on_3Tchange(change):
             # function for changing values
@@ -1035,19 +1038,30 @@ class Tandem3T(object):
             tV = time()
                     
             #replot: dark Lax, Rax
-            if Dcalc and darkFit3T:   #add new fit 
+            if darkFit3T:   #add new dark fit 
                 #dark plots               
-                lines = Lax.get_lines() + Rax.get_lines()
-                for line in lines:
-                    linelabel=line.get_label()
-                    if linelabel.startswith('_fit'):
-                        line.remove()  #remove all the fit lines
-                Jtop = self.top.Jext    #remember
+                Jtop = self.top.Jext    #remember light
                 Jbot = self.bot.Jext
                 self.top.Jext = Jtop*dsun[0]   #make dark
                 self.bot.Jext = Jbot*dsun[1]
-                self.I3Trel(darkFit3T) 
-                darkFit3T.plotIVslice(step = 2, log=True, inplots = (Lax, Rax), labelplus='_fit')
+                
+                lines = Lax.get_lines() + Rax.get_lines()
+                for line in lines:
+                    linelabel=line.get_label()
+                    if linelabel =='_dlntop':
+                        self.V3T(dlntop) #fast
+                        line.set_data(dlntop.VB,abs(dlntop.IB)*scale)
+                        #Lax.plot(dlntop.VB, abs(dlntop.IB)*scale, c='black',marker='.',label='_dlntop')
+                    elif linelabel =='_dlnbot':
+                        self.V3T(dlnbot) #fast
+                        line.set_data(dlnbot.VA, abs(dlnbot.IA)*scale)
+                        #Rax.plot(dlnbot.VA, abs(dlnbot.IA)*scale, c='black',marker='.',label='_dlnbot')
+                    elif linelabel.startswith('_fit'):
+                        if Dcalc: line.remove()  #remove all the fit lines
+                if Dcalc: # replace all coupled dark IV lines 
+                    self.I3Trel(darkFit3T) 
+                    darkFit3T.plotIVslice(step = 2, log=True, inplots = (Lax, Rax), labelplus='_fit')
+ 
                 self.top.Jext = Jtop   #make light again
                 self.bot.Jext = Jbot
 
@@ -1207,23 +1221,40 @@ class Tandem3T(object):
         ######## initial plots: darkData and darkFit ##########
         if darkData3T:
             Lax, Rax = darkData3T.plotIVslice(step = 2, log=True) #plot dark data
+            Lax.set_xlim(np.min(darkData3T.y)-0.1, np.max(darkData3T.y)+0.1)
+            Rax.set_xlim(np.min(darkData3T.x)-0.1, np.max(darkData3T.x)+0.1)
             self.Lax = Lax
             self.Rax = Rax
             Lax.set_title('Top coupled dark I(V)', size=size)
             Rax.set_title('Bottom coupled dark I(V)', size=size)
-            #create dark fit
-            darkFit3T =  darkData3T.copy()
+            #create dark fit model
+            darkFit3T =  darkData3T.copy() #same 2D span as data
             darkFit3T.set(name = self.name+'_darkfit')
-            # calculate dark fit
-            if False:
-                Jtop = self.top.Jext    #remember
-                Jbot = self.bot.Jext
-                self.top.Jext = Jtop*dsun[0]   #make dark
-                self.bot.Jext = Jbot*dsun[1]
+            # create top dark IV with Ibot=0
+            dlntop = IV3T(name='dlntop', meastype = 'CZ', area=self.lightarea)
+            dlntop.line('Ito', dlo, dhi, dpnts, 'Iro', '0',log=True)
+            # create bot dark IV with Itop=0
+            dlnbot = IV3T(name='dlnbot', meastype = 'CZ', area=self.lightarea)
+            dlnbot.line('Iro', dlo, dhi, dpnts, 'Ito', '0',log=True)
+
+            Jtop = self.top.Jext    #remember light
+            Jbot = self.bot.Jext
+            self.top.Jext = Jtop*dsun[0]   #make dark (almost)
+            self.bot.Jext = Jbot*dsun[1]
+            
+            # calculate dark fit            
+            self.V3T(dlntop) #fast
+            #with self.debugout: print(dlntop)
+            Lax.plot(dlntop.VB, abs(dlntop.IB)*scale, c='black',label='_dlntop')
+            self.V3T(dlnbot) #fast
+            #with self.debugout: print(dlnbot)
+            Rax.plot(dlnbot.VA, abs(dlnbot.IA)*scale, c='black',label='_dlnbot')
+            if False:   # slow
                 self.I3Trel(darkFit3T) 
                 darkFit3T.plotIVslice(step = 2, log=True, inplots = (Lax, Rax), labelplus='_fit')
-                self.top.Jext = Jtop   #make light again
-                self.bot.Jext = Jbot
+                
+            self.top.Jext = Jtop   #make light again
+            self.bot.Jext = Jbot
             Lax.get_figure().set_figheight(4)
             Rax.get_figure().set_figheight(4)
             with Lout: Lax.get_figure().show()

@@ -14,6 +14,7 @@ from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
 import scipy.constants as con   #physical constants
 from pvcircuit.junction import *
+import os
 
 # conversion matrices
 SQ2 = math.sqrt(2.)
@@ -192,14 +193,23 @@ class IV3T(object):
             else:
                 setattr(self, key, value)
     
-    def line(self, xkey, x0, x1, xn, ykey, yconstraint):
+    def line(self, xkey, x0, x1, xn, ykey, yconstraint, log=False):
         '''
-        create a 1D ndarray on xke with evenly spaced values
+        create a 1D ndarray on xkey with evenly spaced values (log=False)
+        or log spaced values (log=True) +10^x0 to +10^x1 and -10^x0 to -10^x1
         ykey is constrained to xkey with eval expression using 'x'
         '''
         
-        shape = (xn,)
-        x = np.linspace(x0, x1, xn, dtype=np.float64)
+        if log:
+            lolog=x0
+            hilog=x1
+            Ifor = np.logspace(hilog, lolog, num=xn, dtype=np.float64)
+            Irev = np.logspace(lolog, hilog, num=xn, dtype=np.float64) * (-1)
+            x = np.concatenate((Ifor,Irev),axis=None)
+        else:
+            x = np.linspace(x0, x1, xn, dtype=np.float64)
+            
+        shape = x.shape
         
         for key in self.arraykeys:
             if key == xkey:   
@@ -667,8 +677,8 @@ class IV3T(object):
             dscale = Iscale/area  #mA
        
         # read into dataframe
-        dfA = pd.read_csv(path+fileA, index_col=0)
-        dfB = pd.read_csv(path+fileB, index_col=0)
+        dfA = pd.read_csv(os.path.join(path,fileA), index_col=0)
+        dfB = pd.read_csv(os.path.join(path,fileB), index_col=0)
         
         # y index
         indA = np.array(dfA.index)
@@ -738,17 +748,17 @@ class IV3T(object):
         if dim != 2: 
             fig, ax = plt.subplots() 
             return ax, ['error dim='+str(dim)]
-        if xkey not in self.arraykeys: 
+        if xkey.replace('f','t') not in self.arraykeys: 
             fig, ax = plt.subplots() 
             return ax, ['error xkey='+xkey]
-        if ykey not in self.arraykeys:
+        if ykey.replace('f','t') not in self.arraykeys:
             fig, ax = plt.subplots() 
             return ax, ['error ykey='+ykey]
         
         VorI = xkey[0]
         if VorI == 'I':
             if density:
-                unit = r' (mA/cm2)'
+                unit = ' (mA/cm2)'
                 scale = 1000./self.area
             else:
                 unit = ' (mA)'
@@ -762,7 +772,7 @@ class IV3T(object):
         z0 = zkey[0] 
         if z0 == 'P':
             if density:
-                zlab = r'Power (mW/cm2)'
+                zlab = 'Power (mW/cm2)'
                 zscale = 1000./self.area
             else:
                 zlab = 'Power (mW)'
@@ -770,7 +780,7 @@ class IV3T(object):
             lstep = 5.
         elif z0 == 'I':
             if density:
-                zlab = zkey + r" (mA/cm2)"
+                zlab = zkey + ' (mA/cm2)'
                 zscale = 1000./self.area
             else:
                 zlab = zkey + ' (mA)'
@@ -783,9 +793,9 @@ class IV3T(object):
 
         x = self.x * scale # 1D
         y = self.y * scale # 1D
-        xx = getattr(self,xkey) * scale # 2D
-        yy = getattr(self,ykey) * scale # 2D
-        zz = getattr(self,zkey) * zscale # 2D
+        xx = getattr(self,xkey.replace('f','t')) * scale # 2D
+        yy = getattr(self,ykey.replace('f','t')) * scale # 2D
+        zz = getattr(self,zkey.replace('f','t')) * zscale # 2D
         extent = [np.nanmin(xx), np.nanmax(xx), np.nanmin(yy), np.nanmax(yy)]
         if log:
             zlab = 'log(|'+zlab+'|)'
@@ -963,7 +973,7 @@ class IV3T(object):
             Lax.set_xlabel(self.loadlabel(Vykey)+' (V)', size=size)
             Rax.axvline(0, ls= '--', color='gray', label='_vzero')
             Lax.axvline(0, ls= '--', color='gray', label='_vzero')
-        Rax.legend(bbox_to_anchor=(1.05, 1))
-        Lax.legend(bbox_to_anchor=(1.05, 1)) 
+        #Rax.legend(bbox_to_anchor=(1.05, 1))
+        #Lax.legend(bbox_to_anchor=(1.05, 1)) 
                 
         return Lax, Rax           
