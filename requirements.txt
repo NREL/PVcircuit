@@ -1,0 +1,9 @@
+numpy>=1.13.3 
+matplotlib>=2.1.0 
+parse>=1.19.0
+scipy>=1.0.0
+ipywidgets>=7.6.5
+ipympl>=0.7.0
+pandas>=1.0
+num2words>=0.5.10 
+tandems>=0.989

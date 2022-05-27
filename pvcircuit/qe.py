@@ -319,9 +319,25 @@ def EgFromJdb(TC, Jdb, Eg=1.0, eps=1e-6, itermax=100, dbsides=1.):
 class EQE(object):
     '''
     EQE object
+    It creates a class containing nth junctions EQEs and Luminescent Coupling
+    between junctions. The contribution can be studied interectively using
+    ipywidgets under a notebook. 
+    The methods
+    self.control create the self.ui to adjust the LC
+    self.plot function to plot
+    sle.Jdb: it gets the reverse saturation current.
+
     '''
     def __init__(self, rawEQE, xEQE, name='EQE', sjuncs=None):
-    
+        """It creats the EQE class. ntegrate over spectrum or spectra
+            rawEQE (numpy.array):  2D(lambda)(junction) raw input rawEQE (not LC corrected)
+            xEQE(numpy.array)      xEQE        # wavelengths [nm] for rawEQE data
+            name (str):            name of EQE object, sample
+            sjuncs [list of str]:          labels for the junctions, if None it is self generated 
+
+            The number of junctions is created from the dimension of the EQE
+            self.njuncs = njuncs    # number of junctions
+        """
         #check EQE input
         rawEQE = np.array(rawEQE)  #ensure numpy
         if rawEQE.ndim == 0: #scalar or None
@@ -382,10 +398,14 @@ class EQE(object):
         self.LCcorr() #calculate LC with zero etas
         
     def LCcorr(self, junc=None, dist=None, val=None):
+        """It applies the correction of the Luminescent 
+        coupling to the QE
+        junc [l
+        using procedure from 
+        Steiner et al., IEEE PV, v3, p879 (2013)
+        """
         # change one eta[junc,dist] value
         # calculate LC corrected EQE
-        # using procedure from 
-        # Steiner et al., IEEE PV, v3, p879 (2013)
         etas = self.etas
         #with self.debugout: print(junc,dist,val)
         if junc == None or dist == None or val == None:
@@ -394,6 +414,7 @@ class EQE(object):
             etas[junc,dist] = val   #assign value
             #with self.debugout: print('success')
         raw = self.rawEQE
+        ## TODO: This should be a nested loop, with a break for 10th junctions?
         for ijunc in range(self.njuncs):
             if ijunc == 0: #1st ijunction
                 self.corrEQE[:,ijunc] = raw[:,ijunc]
@@ -414,7 +435,7 @@ class EQE(object):
                     - raw[:,ijunc-3] * etas[ijunc,0] * etas[ijunc,1] * etas[ijunc,2]
                 
     def Jdb(self, TC, Eguess = 1.0, kTfilter=3, dbug=False):
-        # calculate Jscs and Egs from self.corrEQE
+        """It calculate Jscs and Egs from self.corrEQE"""
         Vthlocal = Vth(TC) #kT   
         Eguess = np.array([Eguess] * self.njuncs)
         Egvect = np.vectorize(EgFromJdb)
@@ -441,7 +462,12 @@ class EQE(object):
         return Jdb, Egnew
 
     def Jint(self,  Pspec='global', xspec=wvl):
-        # integrate junction currents = integrate (spectra * lambda * EQE(lambda))
+        """It integrates over spectrum or spectra 
+             J = spectra * lambda * EQE(lambda)
+           Jsc = int(Pspec*QE[0]*lambda) in [mA/cm2]
+           EQE optionally scalar for constant over xEQE range
+           integrate over full spectrum is xEQE is None
+        """
 
         #check spectra input
         if type(Pspec) is str: # optional string space, global, direct
