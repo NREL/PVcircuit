@@ -1245,10 +1245,10 @@ class Tandem3T(object):
             # calculate dark fit            
             self.V3T(dlntop) #fast
             #with self.debugout: print(dlntop)
-            Lax.plot(dlntop.VB, abs(dlntop.IB)*scale, c='black',label='_dlntop')
+            Lax.plot(dlntop.VB, abs(dlntop.IB)*scale, c='black',label='_dlntop',zorder=5)
             self.V3T(dlnbot) #fast
             #with self.debugout: print(dlnbot)
-            Rax.plot(dlnbot.VA, abs(dlnbot.IA)*scale, c='black',label='_dlnbot')
+            Rax.plot(dlnbot.VA, abs(dlnbot.IA)*scale, c='black',label='_dlnbot',zorder=5)
             if False:   # slow
                 self.I3Trel(darkFit3T) 
                 darkFit3T.plotIVslice(step = 2, log=True, inplots = (Lax, Rax), labelplus='_fit')

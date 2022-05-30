@@ -917,8 +917,8 @@ class IV3T(object):
         
         #fig, (Lax, Rax) = plt.subplots(1, 2, constrained_layout=True)
         if inplots == None:
-            Lfig, Lax = plt.subplots(constrained_layout=True)
-            Rfig, Rax = plt.subplots(constrained_layout=True)
+            Lfig, Lax = plt.subplots()#constrained_layout=True)
+            Rfig, Rax = plt.subplots()#constrained_layout=True)
             kwargs = {'lw':0, 'marker':'o'} #markers for data
         else:
             Lax, Rax = inplots
@@ -973,7 +973,7 @@ class IV3T(object):
             Lax.set_xlabel(self.loadlabel(Vykey)+' (V)', size=size)
             Rax.axvline(0, ls= '--', color='gray', label='_vzero')
             Lax.axvline(0, ls= '--', color='gray', label='_vzero')
-        #Rax.legend(bbox_to_anchor=(1.05, 1))
-        #Lax.legend(bbox_to_anchor=(1.05, 1)) 
+        Rax.legend()#bbox_to_anchor=(1.05, 1))
+        Lax.legend()#bbox_to_anchor=(1.05, 1)) 
                 
         return Lax, Rax           

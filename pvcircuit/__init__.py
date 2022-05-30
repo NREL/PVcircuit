@@ -18,6 +18,7 @@ This module contains the classes:
     pvc.Tandem3T()   # properties of a 3T tandem including 2 junctions
     pvc.Multi2T()    # properties of a 2T multijunction with arbitrary junctions
     pvc.TMY()        # properties of a typical meterological year
+    pvc.EQE()        # properties of tandem external quantum efficiency measurements
 """
 
 import os
