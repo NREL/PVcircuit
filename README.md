@@ -30,11 +30,13 @@ Energy yield:
 - parse
 - num2words
 - tandems 
+> for fast energy yield calculations:
+> 
 > git clone https://github.com/Ripalda/Tandems ~/Documents/GitHub/Tandems
 > 
 > cd ~/Documents/GitHub/Tandems
 > 
-> pip install tandems
+> pip install -e .
 
 # Junction( ) Class
 A single *Junction* that can be combined together to form tandem and multijunction solar cells.
