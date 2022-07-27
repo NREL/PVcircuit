@@ -928,6 +928,11 @@ class Tandem3T(object):
                 Dcalc = True
             elif desc == 'MPPcalc':
                 fast = False
+            elif desc == 'savefig':
+                Vax.get_figure().savefig("./Vax.png")
+                Iax.get_figure().savefig("./Iax.png")
+                Lax.get_figure().savefig("./Lax.png")
+                Rax.get_figure().savefig("./Rax.png")
             else:
                 fast=True
 
@@ -1074,6 +1079,8 @@ class Tandem3T(object):
         in_name = widgets.Text(value=self.name,description='name',tooltip='name of Tandem3T model',layout=tand_layout)                        
         in_Rz = widgets.FloatLogSlider(value=self.Rz, base=10, min=-6, max=3, step=0.01,
             description='Rz',layout=tand_layout,readout_format='.2e', tooltip='resistance of Z contact')
+        in_savefig = widgets.Button(description = 'savefig', button_style='success', 
+            tooltip='save figures')
         in_3Tbut = widgets.Button(description = 'All', button_style='success', 
             tooltip='slowest calculations')
         in_Dbut = widgets.Button(description = 'dark', button_style='success', 
@@ -1086,7 +1093,7 @@ class Tandem3T(object):
             tooltip='fairly quick calculations')
         tand_dict = {'name': in_name, 'Rz': in_Rz} 
         #tandout = widgets.interactive_output(self.set, tand_dict)       
-        tand_ui = widgets.HBox([in_tit, in_name, in_Rz, in_Mbut, in_Vbut, in_Ibut, in_Dbut, in_3Tbut])
+        tand_ui = widgets.HBox([in_tit, in_name, in_Rz, in_Mbut, in_Vbut, in_Ibut, in_Dbut, in_3Tbut, in_savefig])
         
         if Vdata3T:
             meastype = Vdata3T.meastype
@@ -1277,6 +1284,7 @@ class Tandem3T(object):
                 if type(cntrl) in replot_types:
                     cntrl.observe(on_3Treplot,names='value')  #replot fast
         in_Rz.observe(on_3Treplot,names='value')  #replot fast
+        in_savefig.on_click(on_3Treplot)  #replot all 
         in_3Tbut.on_click(on_3Treplot)  #replot all 
         in_Dbut.on_click(on_3Treplot)  #replot some  
         in_Ibut.on_click(on_3Treplot)  #replot some  
