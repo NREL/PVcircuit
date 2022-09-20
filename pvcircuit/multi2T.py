@@ -31,8 +31,9 @@ class Multi2T(object):
                         ['purple', 'blue', 'green', 'black', 'orange', 'red']] #6J
     
     def __init__(self, name='Multi2T', TC=TC_REF, Rs2T=0., area=1., Jext=0.014, \
-                  Eg_list=[1.8,1.4], n=[1,2], J0ratio = [10., 10.]):
+                  Eg_list=[1.8,1.4], n=[1,2], J0ratio = None, J0ref=None):
         # user inputs
+        # note n and J0ratio much be same size
           
         self.update_now = False
         self.ui = None
@@ -49,7 +50,7 @@ class Multi2T(object):
         for i, Eg in enumerate(Eg_list):
             jname='j['+str(i)+']'
             self.j.append(Junction(name=jname, Eg=Eg, TC=TC, \
-                n=n, J0ratio = J0ratio, Jext=Jext, area=area))
+                n=n, J0ratio = J0ratio, J0ref = J0ref, Jext=Jext, area=area))
 
         self.j[0].set(beta=0.)
                        

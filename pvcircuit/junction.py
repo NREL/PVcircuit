@@ -66,8 +66,8 @@ class Junction(object):
 
     def __init__(self, name='junc', Eg=Eg_DEFAULT, TC=TC_REF, \
                  Gsh=0., Rser=0., area=AREA_DEFAULT, \
-                 n=[1.,2.], J0ratio=[10.,10.], J0ref=None, \
-                 RBB=None, Jext=0.04, JLC=0., \
+                 n=[1.,2.], J0ratio=None, J0ref=None, \
+                 RBB=None, Jext=0.04, JLC=0., J0default=10., \
                  pn=-1, beta=BETA_DEFAUlT, gamma=0. ):
         
         self.ui = None  
@@ -91,11 +91,22 @@ class Junction(object):
         
         # multiple diodes
         # n=1 bulk, n=m SNS, and n=2/3 Auger mechanisms
+        ndiodes=len(n)
         self.n = np.array(n)   #diode ideality list e.g. [n0, n1]
-        if J0ref == None:
-            self.J0ratio = np.array(J0ratio)    #diode J0/Jdb^(1/n) ratio list for T dependence            
-        else:
-            self._J0init(J0ref)  # calculate self.J0ratio from J0ref at current self.TC
+        if J0ref:   #input list of absolute J0
+            if len(J0ref) == ndiodes: #check length
+                self._J0init(J0ref)  # calculate self.J0ratio from J0ref at current self.TC
+            else:
+                print("J0ref mismatch", ndiodes, len(J0ref))
+                self.J0ratio = np.full_like(n,J0default) #default J0ratio
+        elif J0ratio:   #input list of relative J0 ratios
+            if len(J0ratio) == ndiodes: #check length
+                self.J0ratio = np.array(J0ratio)    #diode J0/Jdb^(1/n) ratio list for T dependence            
+            else:
+                print("J0ratio mismatch", ndiodes, len(J0ratio))
+                self.J0ratio = np.full_like(n,J0default) #default J0ratio
+        else:   #create J0ratio
+             self.J0ratio = np.full_like(n,J0default) #default J0ratio
          
         self.set(RBB=RBB) 
 
