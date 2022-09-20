@@ -8,6 +8,7 @@ import math   #simple math
 import copy
 from time import time
 import numpy as np   #arrays
+import pandas as pd
 import matplotlib.pyplot as plt   #plotting
 import matplotlib as mpl   #plotting
 from scipy.interpolate import interp1d
@@ -929,10 +930,7 @@ class Tandem3T(object):
             elif desc == 'MPPcalc':
                 fast = False
             elif desc == 'savefig':
-                Vax.get_figure().savefig("./Vax.png")
-                Iax.get_figure().savefig("./Iax.png")
-                Lax.get_figure().savefig("./Lax.png")
-                Rax.get_figure().savefig("./Rax.png")
+                fast=True
             else:
                 fast=True
 
@@ -1071,8 +1069,21 @@ class Tandem3T(object):
                 self.bot.Jext = Jbot
 
             tD = time()
-
-            with VoutBox:   print('points{0:>6.2f}; P(I){1:>6.2f}; P(V){2:>6.2f}; dark{3:>6.2f} s'.format((tmp-ts), (tI-tmp), (tV-tI), (tD-tV))) 
+            
+            if desc == 'savefig':
+                outpath = newoutpath(self.name)               
+                strout = str(self)
+                with open(os.path.join(outpath,self.name+'.txt'),'wt') as fout:
+                    fout.write(strout)
+                    
+                # save mathplotlib graphs
+                Vax.get_figure().savefig(os.path.join(outpath,'Vax.png'))
+                Iax.get_figure().savefig(os.path.join(outpath,'Iax.png'))
+                Lax.get_figure().savefig(os.path.join(outpath,'Lax.png'))
+                Rax.get_figure().savefig(os.path.join(outpath,'Rax.png'))
+                with VoutBox:   print('points{0:>6.2f}; P(I){1:>6.2f}; P(V){2:>6.2f}; dark{3:>6.2f} s'.format((tmp-ts), (tI-tmp), (tV-tI), (tD-tV)),"saved: "+outpath) 
+            else:
+                with VoutBox:   print('points{0:>6.2f}; P(I){1:>6.2f}; P(V){2:>6.2f}; dark{3:>6.2f} s'.format((tmp-ts), (tI-tmp), (tV-tI), (tD-tV))) 
 
         # Tandem 3T controls
         in_tit = widgets.Label(value='Tandem3T: ', description='title')

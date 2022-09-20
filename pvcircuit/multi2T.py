@@ -4,17 +4,19 @@ This is the PVcircuit Package.
     pvcircuit.Multi2T()    # properties of a 2T multijunction with arbitrary junctions
 """
 
+import os
 import math   #simple math
 import copy
 from time import time
 import numpy as np   #arrays
+import pandas as pd
 import matplotlib.pyplot as plt   #plotting
 from scipy.optimize import brentq    #root finder
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
 import scipy.constants as con   #physical constants
 import ipywidgets as widgets
 from IPython.display import display
-from pvcircuit.junction import *
+from pvcircuit.junction import * 
 
 class Multi2T(object): 
     '''
@@ -141,7 +143,7 @@ class Multi2T(object):
         return max(areas)
 
     def update(self):
-        # update Multi2T self.ui controls
+        # update Multi2T self.ui controls with manually entered values
         
         for junc in self.j:
             junc.update()
@@ -391,8 +393,11 @@ class Multi2T(object):
             else: # other controls
                 owner = change['owner'] #control                
             desc = owner.description  
-            if desc == 'Recalc': fast = False
-              
+            if desc == 'Recalc': 
+                fast = False
+            elif desc == 'savefig':
+                fast = False
+             
             #recalculate            
             ts = time()            
             Idark, Vdark, Vdarkmid = self.calcDark()
@@ -418,7 +423,6 @@ class Multi2T(object):
             
             VoutBox.clear_output()
             with VoutBox:   print(outstr)
-
 
             with Lout: # left output device -> dark
                 #replot
@@ -483,7 +487,33 @@ class Multi2T(object):
 
             te = time()
             dt=(te-ts)
-            with VoutBox:   print('Calc Time: {0:>6.2f} s'.format(dt))
+            
+            if desc == 'savefig':
+                outpath = newoutpath(self.name)
+                
+                strout = str(self)
+                strout += '\n\nMPP:'+str(MPP)
+                with open(os.path.join(outpath,self.name+'.txt'),'wt') as fout:
+                    fout.write(strout)
+                    
+                # save mathplotlib graphs
+                dax.get_figure().savefig(os.path.join(outpath,'dax.png'))
+                lax.get_figure().savefig(os.path.join(outpath,'lax.png'))
+                
+                # assemble data into 2D arrays then dataframes for saving
+                npdark = np.column_stack((Idark, Vdark, Vdarkmid))
+                dfdark = pd.DataFrame(data=npdark, index=None, columns=['Idark', 'Vdark', 'Vdarkmid'])
+                dfdark.to_csv(os.path.join(outpath,'darkfit.csv'),index=False)
+                
+                nplight = np.column_stack((Vlight, Ilight, Plight, Vlightmid))
+                dflight = pd.DataFrame(data=nplight, index=None, columns=['Vlight', 'Ilight', 'Plight', 'Vlightmid'])
+                dflight.to_csv(os.path.join(outpath,'lightfit.csv'),index=False)
+                
+                # controls output
+                with VoutBox:   print('Calc Time: {0:>6.2f} s'.format(dt), "saved: "+outpath)
+            else:
+                with VoutBox:   print('Calc Time: {0:>6.2f} s'.format(dt))
+
 
         # summary line
         VoutBox = widgets.Output()
@@ -539,9 +569,11 @@ class Multi2T(object):
             description='Rs2T',layout=tand_layout,readout_format='.2e')
         in_2Tbut = widgets.Button(description = 'Recalc', button_style='success', 
             tooltip='slow calculations')         
+        in_savefig = widgets.Button(description = 'savefig', button_style='success', 
+            tooltip='save figures')
         tand_dict = {'name': in_name, 'Rs2T': in_Rs2T}
         #tandout = widgets.interactive_output(self.set, tand_dict)       
-        tand_ui = widgets.HBox([in_tit, in_name, in_Rs2T, in_2Tbut])
+        tand_ui = widgets.HBox([in_tit, in_name, in_Rs2T, in_2Tbut, in_savefig])
 
         in_name.observe(on_2Tchange,names='value') #update values
         in_Rs2T.observe(on_2Tchange,names='value') #update values
@@ -556,6 +588,7 @@ class Multi2T(object):
                     cntrl.observe(on_2Treplot,names='value')  #replot
         in_Rs2T.observe(on_2Treplot,names='value')  #replot
         in_2Tbut.on_click(on_2Treplot)  #replot  
+        in_savefig.on_click(on_2Treplot)  #replot  
  
         junc_ui = widgets.HBox(jui) 
         

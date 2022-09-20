@@ -6,9 +6,12 @@ This is the PVcircuit Package.
 
 import math   #simple math
 import copy
+import os
 from time import time
+from datetime import datetime
 from functools import lru_cache
 import numpy as np   #arrays
+import pandas as pd
 import matplotlib.pyplot as plt   #plotting
 from parse import *
 from scipy.optimize import brentq    #root finder
@@ -35,6 +38,8 @@ VTOL= 0.0001
 EPSREL=1e-15
 MAXITER=1000
 
+GITpath = os.path.dirname(os.path.dirname(os.path.dirname(__file__))) 
+
 @lru_cache(maxsize = 100)
 def TK(TC): return TC + con.zero_Celsius
     #convert degrees celcius to kelvin
@@ -51,7 +56,32 @@ def Jdb(TC, Eg):
     
     #Jdb from Geisz et al.
     return DB_PREFIX * TK(TC)**3. * (EgkT*EgkT + 2.*EgkT + 2.) * np.exp(-EgkT)    #units from DB_PREFIX
+
+def timestamp(fmt="%y%m%d-%H%M%S",tm=None):
+    # return a timestamp string with given format and epoch time
+    if tm == None:
+        tm=time()
+    date_time = datetime.fromtimestamp(tm)
+    return date_time.strftime(fmt)
+
+def newoutpath(dname=None):
+    # return a new outputh within pvc_output
+    if os.path.exists(GITpath):
+        pvcoutpath = os.path.join(GITpath,'pvc_output')
+        if not os.path.exists(pvcoutpath):
+            os.mkdir(pvcoutpath)
         
+        if dname == None:
+            dname = timestamp()
+        else:
+            dname += timestamp()  
+                      
+        newpath = os.path.join(pvcoutpath,dname)
+        if not os.path.exists(newpath):
+            os.mkdir(newpath)
+        
+        return newpath
+            
 class Junction(object):
     """
     Class for PV junctions.
