@@ -1,18 +1,18 @@
-# pvcircuit 
+# pvcircuit
 *pvcircuit* contains objects that are building blocks for PV modeling and interactive data fitting.
 
 Based on publications:
 
-2 terminal multijunction model: 
+2 terminal multijunction model:
 - [J. F. Geisz, et al., IEEE Journal of Photovoltaics 5, p. 1827 (2015).](http://dx.doi.org/10.1109/JPHOTOV.2015.2478072)
 
-3 terminal tandem model: 
+3 terminal tandem model:
 - [J. F. Geisz, et al., Cell Reports Physical Science 2, p. 100677 (2021).](https://doi.org/10.1016/j.xcrp.2021.100677)
 
-Luminescent coupling correction of EQE: 
+Luminescent coupling correction of EQE:
 - [M. A. Steiner, et al., IEEE Journal of Photovoltaics 3, p. 879 (2013).](http://dx.doi.org/10.1109/JPHOTOV.2012.2228298)
 
-Energy yield: 
+Energy yield:
 - [J. M. Ripalda, et al., Nature Communications 9, p. 5126 (2018).](http://dx.doi.org/10.1038/s41467-018-07431-3)
 
 ### Installation
@@ -20,7 +20,7 @@ Energy yield:
 - on this https://github.com/NREL/PVcircuit page click the green "Code" button and "Open with GitHub Desktop"
 - cd to the PVcircuit directory in terminal and type "pip install -e ."
 
-### Packages needed 
+### Packages needed
 - pandas
 - numpy
 - matplotlib
@@ -29,22 +29,22 @@ Energy yield:
 - ipympl
 - parse
 - num2words
-- tandems 
+- tandems
 > for fast energy yield calculations:
-> 
+>
 > git clone https://github.com/Ripalda/Tandems ~/Documents/GitHub/Tandems
-> 
+>
 > cd ~/Documents/GitHub/Tandems
-> 
+>
 > pip install -e .
 
 # Junction( ) Class
 A single *Junction* that can be combined together to form tandem and multijunction solar cells.
 
-![Junction Schematic](https://github.com/NREL/PVcircuit/blob/master/images/junction%20equations.png) 
+![Junction Schematic](https://github.com/NREL/PVcircuit/blob/master/images/junction%20equations.png)
 
 The *Junction* is modeled by an arbitrary number of parallel diodes such as n=1, n=2, n=2/3, or any other ideality factor.
-The temperature dependance of each diode saturation current J0n is determined relative to the Jdb(Eg,T). 
+The temperature dependance of each diode saturation current J0n is determined relative to the Jdb(Eg,T).
 
 ## Junction.attributes
 ### Junction.name
@@ -103,7 +103,7 @@ Consists of plot, widget controls, and other outputs
 ### Junction.debugout
 Hidden output of for debugging
 
-## Junction.properties 
+## Junction.properties
 ### Junction.TK
 Temperature (K) from TC
 
@@ -154,7 +154,7 @@ returns shunt + reverse-bias breakdown current
     RBB_dict={'method':None}
     RBB_dict={'method':'JFG', mrb'':10., 'J0rb':1., 'Vrb':0.}
     RBB_dict={'method':'bishop','mrb'':3.28, 'avalanche':1, 'Vrb':-5.5}
-    RBB_dict={'method':'pvmismatch','ARBD':arbd,'BRBD':brbd,'VRBD':vrb,'NRBD':nrbd:  
+    RBB_dict={'method':'pvmismatch','ARBD':arbd,'BRBD':brbd,'VRBD':vrb,'NRBD':nrbd}
 
 ### Junction.Jparallel(Vdiode,Jtot)
 Circuit equation to be zeroed to solve for Vi for voltage across parallel diodes with shunt and reverse breakdown.
@@ -163,7 +163,7 @@ Circuit equation to be zeroed to solve for Vi for voltage across parallel diodes
 Calculate voltage across diode without series resistance as a function current density through the diode.
 
 ### Junction._dV(Vmid, Vtot)
-Circuit equation to be zeroed (returns voltage difference) to solve for Vmid. Single junction circuit with series resistance and parallel diodes. 
+Circuit equation to be zeroed (returns voltage difference) to solve for Vmid. Single junction circuit with series resistance and parallel diodes.
 *internal use only*
 
 ### Junction.Vmid(Vtot)
@@ -217,7 +217,7 @@ Create a Multi2T object from a Tandem3T object
 Create a Multi2T object from a Junction object
 
 ### Multi2T.set(\**kwargs)
-Controlled change of Multi2T and its Junction's attributes 
+Controlled change of Multi2T and its Junction's attributes
 
 ### Multi2T.proplist(key)
 Create a list of the scalar attributes or properties of the Junctions within a Multi2T object
@@ -238,7 +238,7 @@ Inputs scalar and outputs scalar.
 Can be vectorized by
 
      V2Tvect = np.vectorize(self.V2T)
-     
+
 ### Multi2T.I2T(V)
 Calculates the series-connected current as a function of total current Multi2T voltage.
 
@@ -312,7 +312,7 @@ Maximum of the contained Junction.totalareas
 Create a copy of this Tandem3T object
 
 ### Tandem3T.set(\**kwargs)
-Controlled change of Tandem3T and its Junction's attributes 
+Controlled change of Tandem3T and its Junction's attributes
 
 ### Tandem3T.controls()
 Create a user interface Tandem3T.ui which consists of plot, widget controls, and other outputs
@@ -321,12 +321,12 @@ Create a user interface Tandem3T.ui which consists of plot, widget controls, and
 Update Tandem3T and its Junction's attributes into Tandem3T.ui controls if they exist
 
 ### Tandem3T.V3T(iv3T)
-Calcuate iv3T.(Vzt,Vrz,Vtr) from iv3T.(Iro,Izo,Ito) 
+Calcuate iv3T.(Vzt,Vrz,Vtr) from iv3T.(Iro,Izo,Ito)
 
 *input/output IV3T object*
 
 ### Tandem3T.J3Tabs(iv3T)
-Calcuate (Jro,Jzo,Jto) mapped -> iv3T.(Iro,Izo,Ito) from ABSOLUTE (Vz,Vr,Vt) mapped <- iv3T.(Vzt,Vrz,Vtr) 
+Calcuate (Jro,Jzo,Jto) mapped -> iv3T.(Iro,Izo,Ito) from ABSOLUTE (Vz,Vr,Vt) mapped <- iv3T.(Vzt,Vrz,Vtr)
 
 *input/output IV3T object*
 
@@ -347,15 +347,15 @@ Triple Voc of 3T tandem returns IV3T object.
 
 
         (Vzt, Vrz, Vtr) of (Iro = 0, Izo = 0, Ito = 0)
-        
+
 ### Tandem3T.Isc3(meastype='CZ')
 Triple Isc of 3T tandem returns IV3T object.
 
 *returns IV3T object with one point*
 
 
-        (Iro, Izo, Ito ) of (Vzt = 0, Vrz = 0, Vtr = 0) 
-        
+        (Iro, Izo, Ito ) of (Vzt = 0, Vrz = 0, Vtr = 0)
+
 ### Tandem3T.MPP(pnts=31, VorI= 'I', less = 2., bplot=False)
 Iteratively find unconstrained MPP from lines as experimentally done. Varying I is faster than varying V but initial guess is not as good.
 
@@ -371,13 +371,13 @@ Focus iteratively on the MPP of the constrained line.
 
 'bot' bottom subcells in parallel with 'top' top subcells
 
-*returns two IV3T objects - the constrained line and MPP* 
+*returns two IV3T objects - the constrained line and MPP*
 
 ### Tandem3T.CM(self, pnts=11)
 Create current matched (CM) constrained line for tandem3T.
 Focus iteratively on the MPP of the constrained line.
 
-*returns two IV3T objects - the constrained line and MPP* 
+*returns two IV3T objects - the constrained line and MPP*
 
 ### Tandem3T.VI0(VIname, meastype='CZ')
 Solve for mixed (V=0, I=0) zero power points using separate diodes for quick solutions
@@ -404,22 +404,22 @@ Device parameters calculated for a 'Tandem3T' object.
 
 Device paramters converted to load parameters for given measurement configuration (CZ, CR, CT).
 
-    (Iro, Izo, Ito) <-> (IA, IB) 
+    (Iro, Izo, Ito) <-> (IA, IB)
 
     (Vzt, Vrz, Vtr) <-> (VA, VB)
 
 Hexagonal representation of 3 device parameters in 2 dimensions.
 
-    (Iro, Izo, Ito) <-> (Ixhex, Iyhex) 
+    (Iro, Izo, Ito) <-> (Ixhex, Iyhex)
 
     (Vzt, Vrz, Vtr) <-> (Vxhex, Vyhex)
 
 ## IV3T.attributes
 ### IV3T.name
-*string* Name of this IV3T 
+*string* Name of this IV3T
 
 ### IV3T.meastype
-*string* Measurement type of IV3T object  'CZ', 'CR', 'CT', 'CF', 'CRo', 'CTo', 'CZo', or 'CFo' 
+*string* Measurement type of IV3T object  'CZ', 'CR', 'CT', 'CF', 'CRo', 'CTo', 'CZo', or 'CFo'
 
 ### IV3T.shape
 Shape of numpy.array that contains array points of IV3T object. *tuple* either 1D ie. (npts,) or 2D (xpnts, ypnts)
@@ -431,12 +431,12 @@ Shape of numpy.array that contains array points of IV3T object. *tuple* either 1
 *string* Name of the arraykey that is systematically varied.
 
 ### IV3T.ykey
-*string* Name of the orthoganal arraykey that is systematically varied by IV3T.box() or constrained by IV3T.line() 
+*string* Name of the orthoganal arraykey that is systematically varied by IV3T.box() or constrained by IV3T.line()
 
 ### IV3T.x
 1D *ndarray* of *xkey* values of box or line
 
-### IV3T.y 
+### IV3T.y
 1D *ndarray* of *ykey* values of box or line
 
 ### IV3T.names[ ]
@@ -470,7 +470,7 @@ Create a separate complete copy of a IV3T
 
 ### IV3T.line(xkey, x0, x1, xn, ykey, yconstraint)
 Create a 1D ndarray on xkey with evenly spaced values in IV3T..x
-        
+
 ykey is constrained to xkey with eval expression using 'x'
 
 ### IV3T.box(xkey, x0, x1, xn, ykey, y0, y1, yn)
@@ -504,7 +504,7 @@ Input a list of 2 or 3 of the device input keys:
 
             2 -> calculate the third device value from other two knowns
             3 -> check the validity of 3 device parameters
-            
+
 ### IV3T.Pcalc(oper='dev2load', meastype=None)
 Calculate Ptot after converting using oper = 'dev2load' or 'load2dev'
 
@@ -518,7 +518,7 @@ VorI: 'V' or 'I'
 
 oper: 'load2dev', 'dev2load', 'dev2hex', 'hex2dev' (not developed yet)
 
-meastype: 'CR','CT','CZ','CF' or swap the loads: 'CRo','CTo','CZo', 'CFo' 
+meastype: 'CR','CT','CZ','CF' or swap the loads: 'CRo','CTo','CZo', 'CFo'
 
 ### IV3T.loadcsv(name, path, fileA, fileB, VorI, meastype, Iscale=1000.)
 import csv file as data table into iv3T object
@@ -530,7 +530,7 @@ two 2D arrays with x and y index on top and left
     or
     IA(VA,VB) & IB(VA,VB) .......... VorI='V'
     Iscale converts current mA -> A or mA/cm2-> A
-        
+
 ### IV3T.plot(xkey = None, ykey = None, zkey = None, inplot = None, cmap='terrain', ccont = 'black', bar = True)
 Plot 2D IV3T object zkey(xkey,ykey) as image if evenly spaced or randomly spaced with contours
 
@@ -549,22 +549,22 @@ Object to contain all EQE information
 ### EQE.rawEQE
 *numpy.array* 2D(lambda)(junction) raw input rawEQE (not LC corrected)
 
-### EQE.xEQE 
+### EQE.xEQE
 *numpy.array* wavelengths [nm] for rawEQE data
 
-### EQE.njuncs 
+### EQE.njuncs
 *int* number of junctions
 
-### EQE.sjuncs 
+### EQE.sjuncs
 *str* names of junctions used in plot legend
 
-### EQE.nQlams 
+### EQE.nQlams
 *int* number of wavelengths in rawEQE data
 
-### EQE.corrEQE 
-*numpy.array* luminescent coupling corrected EQE same size as rawEQE      
+### EQE.corrEQE
+*numpy.array* luminescent coupling corrected EQE same size as rawEQE
 
-### EQE.etas 
+### EQE.etas
 *numpy.array* LC factor for next three junctions
 
 ## EQE.methods()
@@ -589,7 +589,7 @@ Plot *self.rawEQE* and *self.corrEQE* on top of a spectrum
 *obsolete use EQE.Jint*
 calculate total power of spectra and Jsc of each junction from multi-dimentional EQE
 - integrate multidimentional QE(lambda)(junction) times MD reference spectra Pspec(lambda)(ispec)
-- external quantum efficiency QE[unitless] x-units = nm, 
+- external quantum efficiency QE[unitless] x-units = nm,
 - reference spectra Pspec[W/m2/nm] x-units = nm
 - optionally Pspec as string 'space', 'global', or 'direct'
 - xEQE in nm, can optionally use (start, step) for equally spaced data
@@ -685,7 +685,7 @@ Expects 'Tandems' github to be parallel to 'PVcircuit' github
 ### TMY.RefPower
 *numpy.array* Optical power associate with each reference spectrum 1D [3]
 
-### TMY.inPower 
+### TMY.inPower
 *numpy.array* (SpecPower * NTime) associate with each spectrum 1D [nspecs]
 
 ### TMY.YearlyEnergy
@@ -709,7 +709,7 @@ Creates *numpy.array* for subsequent calculations
 
 ### TMY.cellSTCeff(self,model,oper,iref=1)
 Calculate efficiency of a cell under a reference spectrum
-*self.JscSTCs* and *self.Egs* must be calculate first. 
+*self.JscSTCs* and *self.Egs* must be calculate first.
 
 Inputs
 - cell 'model' can be 'Multi2T' or 'Tandem3T' objects
@@ -718,18 +718,18 @@ Inputs
 - iref = 1 -> global
 - iref = 2 -> direct
 
-Outputs 
+Outputs
 - STCeff efficiency of cell under reference spectrum (space,global,direct)
 
 ### TMY.cellEYeff(self,model,oper)
 Calculate efficiency of a cell under self (TMY).
-*self.Jscs* and *self.Egs* must be calculate first. 
+*self.Jscs* and *self.Egs* must be calculate first.
 
 Inputs
 - cell 'model' can be 'Multi2T' or 'Tandem3T'
 - 'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
 
-Outputs 
+Outputs
 - EY energy yield of cell [kWh/m2/yr]
 - EYeff energy yield efficiency = EY/YearlyEnergy
 
@@ -749,4 +749,4 @@ return description of model and operation
 
 Outputs: (bot, top, ratio, type3T)
 
- 
+
