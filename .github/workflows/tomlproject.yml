@@ -1,0 +1,38 @@
+name: Python Tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]  # Chose windows-latest, ubuntu-latest, macos-latest.
+        python-version: ['3.9', '3.10', '3.11', '3.12']  # Test multiple Python versions
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install
+      - name: Set up Python and Install Dependencies
+        run: |
+          python -m pip install --upgrade pip  # Ensure pip is up to date
+          python -m pip install .[test]  # Install the package with development dependencies from pyproject.toml
+
+      # Lint with Ruff
+      # - name: Lint with Ruff
+      #   run: |
+      #     ruff check . --statistics
+
+      # Run pyest
+      - name: Run Tests
+        run: |
+          pytest --cov=pvcircuit
+        # continue-on-error: true

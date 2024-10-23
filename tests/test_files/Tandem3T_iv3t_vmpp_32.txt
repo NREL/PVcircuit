@@ -1,0 +1,6 @@
+MPPVM32: <pvcircuit.iv3T.IV3T class>
+{'name': 'MPPVM32', 'meastype': 'CZ', 'area': 1.0, 'shape': (1,)}
+sizes(1, 1)
+
+ #     mIro     mIzo     mIto     Vzt      Vrz      Vtr      mIA      mIB       VA       VB     mPtot    mIxhex   mIyhex   Vxhex    Vyhex  
+(0,) -13.77    0.52     13.20    1.304    0.869   -2.173   -13.77    13.20    0.869   -1.304    29.19   -19.08    0.63     2.459    1.004  

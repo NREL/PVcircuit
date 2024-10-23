@@ -1,3 +1,6 @@
+[![Python Tests](https://github.com/NREL/PVcircuit/actions/workflows/tomlproject.yml/badge.svg?branch=master)](https://github.com/NREL/PVcircuit/actions/workflows/tomlproject.yml)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
 # pvcircuit
 *pvcircuit* contains objects that are building blocks for PV modeling and interactive data fitting.
 

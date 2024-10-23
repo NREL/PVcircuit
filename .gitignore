@@ -106,6 +106,8 @@ celerybeat.pid
 .venv
 env/
 venv/
+cenv/
+.cenv/
 ENV/
 env.bak/
 venv.bak/
@@ -113,6 +115,9 @@ venv.bak/
 # Spyder project settings
 .spyderproject
 .spyproject
+
+# vscode project settings
+.vscode
 
 # Rope project settings
 .ropeproject
@@ -127,3 +132,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# other folders
+Share/

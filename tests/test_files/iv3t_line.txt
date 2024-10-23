@@ -1,0 +1,16 @@
+iv3T: <pvcircuit.iv3T.IV3T class>
+{'name': 'iv3T', 'meastype': 'CZ', 'area': 1, 'shape': (11,), 'xkey': 'Vzt', 'ykey': 'Vrz', 'x': (0.0, 1.2), 'y': (0.0, 0.0)}
+sizes(11, 11)
+
+  #     mIro     mIzo     mIto     Vzt      Vrz      Vtr      mIA      mIB       VA       VB     mPtot    mIxhex   mIyhex   Vxhex    Vyhex  
+ (0,)   nan      nan      nan     0.000    0.000   0.000      nan      nan      nan      nan      nan      nan      nan      nan      nan   
+ (1,)   nan      nan      nan     0.120    0.000   -0.120     nan      nan      nan      nan      nan      nan      nan      nan      nan   
+ (2,)   nan      nan      nan     0.240    0.000   -0.240     nan      nan      nan      nan      nan      nan      nan      nan      nan   
+ (3,)   nan      nan      nan     0.360    0.000   -0.360     nan      nan      nan      nan      nan      nan      nan      nan      nan   
+ (4,)   nan      nan      nan     0.480    0.000   -0.480     nan      nan      nan      nan      nan      nan      nan      nan      nan   
+ (5,)   nan      nan      nan     0.600    0.000   -0.600     nan      nan      nan      nan      nan      nan      nan      nan      nan   
+ (6,)   nan      nan      nan     0.720    0.000   -0.720     nan      nan      nan      nan      nan      nan      nan      nan      nan   
+ (7,)   nan      nan      nan     0.840    0.000   -0.840     nan      nan      nan      nan      nan      nan      nan      nan      nan   
+ (8,)   nan      nan      nan     0.960    0.000   -0.960     nan      nan      nan      nan      nan      nan      nan      nan      nan   
+ (9,)   nan      nan      nan     1.080    0.000   -1.080     nan      nan      nan      nan      nan      nan      nan      nan      nan   
+(10,)   nan      nan      nan     1.200    0.000   -1.200     nan      nan      nan      nan      nan      nan      nan      nan      nan   

@@ -1,0 +1,26 @@
+iv3T: <pvcircuit.iv3T.IV3T class>
+{'name': 'iv3T', 'meastype': 'CZ', 'area': 1, 'shape': (30, 30), 'xkey': 'VA', 'ykey': 'VB', 'x': (-1.5, 0.2), 'y': (-1.5, 0.2)}
+sizes(900, 900)
+
+   #       mIro     mIzo     mIto     Vzt      Vrz      Vtr      mIA      mIB       VA       VB     mPtot    mIxhex   mIyhex   Vxhex    Vyhex  
+ (0, 0) -405537031.19 1500.00   14.00    1.500   -1.500    0.000     nan      nan    -1.500   -1.500     nan      nan      nan      nan      nan   
+ (0, 1) -41426744.18 1500.00   14.00    1.500   -1.441   -0.059     nan      nan    -1.441   -1.500     nan      nan      nan      nan      nan   
+ (0, 2) -4234856.94 1500.00   14.00    1.500   -1.383   -0.117     nan      nan    -1.383   -1.500     nan      nan      nan      nan      nan   
+ (0, 3) -433859.41 1500.00   14.00    1.500   -1.324   -0.176     nan      nan    -1.324   -1.500     nan      nan      nan      nan      nan   
+ (0, 4) -44744.42 1500.00   14.00    1.500   -1.266   -0.234     nan      nan    -1.266   -1.500     nan      nan      nan      nan      nan   
+ (0, 5) -4701.06  1500.00   14.00    1.500   -1.207   -0.293     nan      nan    -1.207   -1.500     nan      nan      nan      nan      nan   
+ (0, 6)  -513.64  1500.00   14.00    1.500   -1.148   -0.352     nan      nan    -1.148   -1.500     nan      nan      nan      nan      nan   
+ (0, 7)  -54.63   1500.00   14.00    1.500   -1.090   -0.410     nan      nan    -1.090   -1.500     nan      nan      nan      nan      nan   
+ (0, 8)   2.28    1500.00   14.00    1.500   -1.031   -0.469     nan      nan    -1.031   -1.500     nan      nan      nan      nan      nan   
+ (0, 9)   11.30   1500.00   14.00    1.500   -0.972   -0.528     nan      nan    -0.972   -1.500     nan      nan      nan      nan      nan   
+
+
+(29, 21)  14.00   -200.00   14.00   -0.200   -0.269    0.469     nan      nan    -0.269    0.200     nan      nan      nan      nan      nan   
+(29, 22)  14.00   -200.00   14.00   -0.200   -0.210    0.410     nan      nan    -0.210    0.200     nan      nan      nan      nan      nan   
+(29, 23)  14.00   -200.00   14.00   -0.200   -0.152    0.352     nan      nan    -0.152    0.200     nan      nan      nan      nan      nan   
+(29, 24)  14.00   -200.00   14.00   -0.200   -0.093    0.293     nan      nan    -0.093    0.200     nan      nan      nan      nan      nan   
+(29, 25)  14.00   -200.00   14.00   -0.200   -0.034    0.234     nan      nan    -0.034    0.200     nan      nan      nan      nan      nan   
+(29, 26)  14.00   -200.00   14.00   -0.200    0.024    0.176     nan      nan     0.024    0.200     nan      nan      nan      nan      nan   
+(29, 27)  14.00   -200.00   14.00   -0.200    0.083    0.117     nan      nan     0.083    0.200     nan      nan      nan      nan      nan   
+(29, 28)  14.00   -200.00   14.00   -0.200    0.141    0.059     nan      nan     0.141    0.200     nan      nan      nan      nan      nan   
+(29, 29)  14.00   -200.00   14.00   -0.200    0.200    0.000     nan      nan     0.200    0.200     nan      nan      nan      nan      nan   

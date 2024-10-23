@@ -1,0 +1,6 @@
+MPPVM11: <pvcircuit.iv3T.IV3T class>
+{'name': 'MPPVM11', 'meastype': 'CZ', 'area': 1.0, 'shape': (1,)}
+sizes(1, 1)
+
+ #     mIro     mIzo     mIto     Vzt      Vrz      Vtr      mIA      mIB       VA       VB     mPtot    mIxhex   mIyhex   Vxhex    Vyhex  
+(0,) -12.65    -1.30    14.00    0.943    0.943   -1.885   -12.65    14.00    0.943   -0.943    25.12   -18.84    -1.53    2.000    1.088  

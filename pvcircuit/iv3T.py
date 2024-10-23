@@ -7,6 +7,7 @@ This is the PVcircuit Package.
 import copy
 import math  # simple math
 import os
+import re
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt  # plotting
@@ -171,6 +172,11 @@ class IV3T(object):
                 strout += strline
             elif i == prntmax:
                 strout += "\n\n"
+
+        # Clean string from numpy types present after numpy > 2.x.x
+        strout = re.sub(r"np\.(?:int|float|int64|float64)\(([^)]+)\)", r"\1", strout)
+        # replace negative 0
+        strout = re.sub(r'-0\.(0+)\b', r'0.\1 ', strout)
 
         return strout
 
@@ -446,7 +452,7 @@ class IV3T(object):
         # sort a iv3T line based on array key
         # unexpected results for iv3T box
         sortarray = getattr(self, key)
-        p = np.argsort(sortarray)
+        p = np.argsort(sortarray, kind="stable")
 
         for key in self.arraykeys:
             array = getattr(self, key)
