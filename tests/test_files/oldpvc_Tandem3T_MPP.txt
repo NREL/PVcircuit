@@ -1,0 +1,6 @@
+MPP: <pvcircuit.iv3T.IV3T class>
+{'name': 'MPP', 'meastype': 'CZ', 'area': 1.0, 'shape': (1,)}
+sizes(1, 1)
+
+ #     mIro     mIzo     mIto     Vzt      Vrz      Vtr      mIA      mIB       VA       VB     mPtot    mIxhex   mIyhex   Vxhex    Vyhex  
+(0,) -13.30    -0.18    13.53    1.277    0.912   -2.190   -13.30    13.53    0.912   -1.277    29.42   -18.97    -0.24    2.451    1.053  

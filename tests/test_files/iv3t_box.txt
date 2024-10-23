@@ -1,0 +1,26 @@
+iv3T: <pvcircuit.iv3T.IV3T class>
+{'name': 'iv3T', 'meastype': 'CZ', 'area': 1, 'shape': (55, 55), 'xkey': 'IA', 'ykey': 'IB', 'x': (-0.025, 0.025), 'y': (-0.03, 0.03)}
+sizes(3025, 3025)
+
+   #       mIro     mIzo     mIto     Vzt      Vrz      Vtr      mIA      mIB       VA       VB     mPtot    mIxhex   mIyhex   Vxhex    Vyhex  
+ (0, 0)    nan      nan      nan      nan      nan      nan    -25.00   -30.00     nan      nan      nan      nan      nan      nan      nan   
+ (0, 1)    nan      nan      nan      nan      nan      nan    -24.07   -30.00     nan      nan      nan      nan      nan      nan      nan   
+ (0, 2)    nan      nan      nan      nan      nan      nan    -23.15   -30.00     nan      nan      nan      nan      nan      nan      nan   
+ (0, 3)    nan      nan      nan      nan      nan      nan    -22.22   -30.00     nan      nan      nan      nan      nan      nan      nan   
+ (0, 4)    nan      nan      nan      nan      nan      nan    -21.30   -30.00     nan      nan      nan      nan      nan      nan      nan   
+ (0, 5)    nan      nan      nan      nan      nan      nan    -20.37   -30.00     nan      nan      nan      nan      nan      nan      nan   
+ (0, 6)    nan      nan      nan      nan      nan      nan    -19.44   -30.00     nan      nan      nan      nan      nan      nan      nan   
+ (0, 7)    nan      nan      nan      nan      nan      nan    -18.52   -30.00     nan      nan      nan      nan      nan      nan      nan   
+ (0, 8)    nan      nan      nan      nan      nan      nan    -17.59   -30.00     nan      nan      nan      nan      nan      nan      nan   
+ (0, 9)    nan      nan      nan      nan      nan      nan    -16.67   -30.00     nan      nan      nan      nan      nan      nan      nan   
+
+
+(54, 46)   nan      nan      nan      nan      nan      nan     17.59    30.00     nan      nan      nan      nan      nan      nan      nan   
+(54, 47)   nan      nan      nan      nan      nan      nan     18.52    30.00     nan      nan      nan      nan      nan      nan      nan   
+(54, 48)   nan      nan      nan      nan      nan      nan     19.44    30.00     nan      nan      nan      nan      nan      nan      nan   
+(54, 49)   nan      nan      nan      nan      nan      nan     20.37    30.00     nan      nan      nan      nan      nan      nan      nan   
+(54, 50)   nan      nan      nan      nan      nan      nan     21.30    30.00     nan      nan      nan      nan      nan      nan      nan   
+(54, 51)   nan      nan      nan      nan      nan      nan     22.22    30.00     nan      nan      nan      nan      nan      nan      nan   
+(54, 52)   nan      nan      nan      nan      nan      nan     23.15    30.00     nan      nan      nan      nan      nan      nan      nan   
+(54, 53)   nan      nan      nan      nan      nan      nan     24.07    30.00     nan      nan      nan      nan      nan      nan      nan   
+(54, 54)   nan      nan      nan      nan      nan      nan     25.00    30.00     nan      nan      nan      nan      nan      nan      nan   

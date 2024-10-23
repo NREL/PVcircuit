@@ -1,0 +1,6 @@
+VrzIto: <pvcircuit.iv3T.IV3T class>
+{'name': 'VrzIto', 'meastype': 'CZ', 'area': 1.0, 'shape': (1,)}
+sizes(1, 1)
+
+ #     mIro     mIzo     mIto     Vzt      Vrz      Vtr      mIA      mIB       VA       VB     mPtot    mIxhex   mIyhex   Vxhex    Vyhex  
+(0,) -23.23    23.23    0.00     1.448    0.000   -1.448   -23.23    0.00     0.000   -1.448    0.00    -16.42    26.82    2.048    0.000  

@@ -1,0 +1,6 @@
+ItoVxhex: <pvcircuit.iv3T.IV3T class>
+{'name': 'ItoVxhex', 'meastype': 'CZ', 'area': 1.0, 'shape': (1,)}
+sizes(1, 1)
+
+ #     mIro     mIzo     mIto     Vzt      Vrz      Vtr      mIA      mIB       VA       VB     mPtot    mIxhex   mIyhex   Vxhex    Vyhex  
+(0,) -15.10    15.10    0.00     1.440    1.002   -2.442   -15.10    0.00     1.002   -1.440    15.13   -10.68    17.44    2.745    1.157  

@@ -1,0 +1,5 @@
+iv3T: <pvcircuit.iv3T.IV3T class>
+{'name': 'iv3T', 'meastype': 'CZ', 'area': 1, 'shape': (0,)}
+sizes(0, 0)
+
+ #     mIro     mIzo     mIto     Vzt      Vrz      Vtr      mIA      mIB       VA       VB     mPtot    mIxhex   mIyhex   Vxhex    Vyhex  
