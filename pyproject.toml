@@ -182,3 +182,11 @@ packages = ["pvcircuit"]  # Adjust based on your actual package structure
 # include-package-data = true
 [options.package_data]
 pvcircuit ="data/*"
+
+
+[tool.ruff]
+# select = ["E", "W", "F"]  # Select categories of linting rules
+ignore = [
+    "F401", # Ignore unused imports
+    # "F841", # Ignore unused variables
+]

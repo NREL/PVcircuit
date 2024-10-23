@@ -1,28 +1,32 @@
 # -*- coding: utf-8 -*-
 """
-This is the PVcircuit Package. 
+This is the PVcircuit Package.
     pvcircuit.qe    # functions for QE analysis
 """
 
-import math   #simple math
 import copy
-from time import time
+import math  #simple math
+import os
 from functools import lru_cache
+from pathlib import Path
+from time import time
+
+import ipywidgets as widgets
+import matplotlib as mpl  #plotting
+import matplotlib.pyplot as plt  #plotting
+import numpy as np  #arrays
 import pandas as pd  #dataframes
-import numpy as np   #arrays
+
+#from scipy.integrate import trapezoid
+import scipy.constants as con  #physical constants
 from cycler import cycler
-import matplotlib.pyplot as plt   #plotting
-import matplotlib as mpl   #plotting
-from scipy.optimize import brentq    #root finder
+from IPython.display import display
+
 #from scipy.special import lambertw, gammaincc, gamma   #special functions
 from scipy.interpolate import interp1d
-#from scipy.integrate import trapezoid
-import scipy.constants as con   #physical constants
-import ipywidgets as widgets
-from IPython.display import display
+from scipy.optimize import brentq  #root finder
+
 from pvcircuit.junction import *
-from num2words import num2words
-import os
 from pvcircuit.multi2T import *
 
 # colors
@@ -45,11 +49,11 @@ DBWVL_PREFIX = 2. * np.pi * con.c * con.e / 100 / 100 #A/cm2
 
 
 # standard data
-pvcpath = os.path.dirname(os.path.dirname(__file__))  
-datapath = os.path.join(pvcpath, 'data','') # Data files here
+pvcpath = Path(__file__).parent
+datapath = pvcpath.joinpath('data') # Data files here
 #datapath = os.path.abspath(os.path.relpath('../data/', start=__file__))
 #datapath = pvcpath.replace('/pvcircuit','/data/')
-ASTMfile = os.path.join(datapath,'ASTMG173.csv')
+ASTMfile = datapath.joinpath('ASTMG173.csv')
 try:
     dfrefspec = pd.read_csv(ASTMfile, index_col=0, header=2)
     wvl=dfrefspec.index.to_numpy(dtype=np.float64, copy=True)
@@ -63,9 +67,18 @@ except:
     print(datapath)
     print(ASTMfile)
 
+
+def ordinal(n):
+    suffixes = {1: 'st', 2: 'nd', 3: 'rd'}
+    if 10 <= n % 100 <= 20:
+        suffix = 'th'
+    else:
+        suffix = suffixes.get(n % 10, 'th')
+    return f"{n}{suffix}"
+
 def JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False):
     '''
-    calculate detailed-balance reverse saturation current 
+    calculate detailed-balance reverse saturation current
     from EQE vs xEQE
     xEQE in nm, can optionally use (start, step) for equally spaced data
     debug on bplot
@@ -74,14 +87,14 @@ def JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False):
     EQE = np.array(EQE)  #ensure numpy
     if EQE.ndim == 1: #1D EQE[lambda]
         nQlams,  = EQE.shape
-        njuncs = 1        
+        njuncs = 1
     elif EQE.ndim == 2:  #2D EQE[lambda, junction]
         nQlams, njuncs = EQE.shape
     else:
         return 'dims in EQE:' + str(EQE.ndim)
 
     Eguess = np.array([Eguess] * njuncs)
-    
+
     if len(xEQE) == 2: # evenly spaced x-values (start, stop)
         start, stop = xEQE
         #stop =  start + step * (nQlams - 1)
@@ -101,39 +114,39 @@ def JdbMD(EQE, xEQE, TC, Eguess = 1.0, kTfilter=3, bplot=False):
     Egvect = np.vectorize(EgFromJdb)
     EkT = nm2eV / Vthlocal / xEQE
     blackbody = np.expand_dims(DBWVL_PREFIX / (xEQE*1e-9)**4 / np.expm1(EkT) , axis=1)
-    
-    for count in range(10): 
+
+    for count in range(10):
         nmfilter = nm2eV/(Eguess - Vthlocal * kTfilter) #MD [652., 930.]
         if njuncs == 1:
             EQEfilter = np.expand_dims(EQE.copy(), axis=1)
         else:
             EQEfilter = EQE.copy()
-            
+
         for i, lam in enumerate(xEQE):
-            EQEfilter[i,:] *= (lam < nmfilter) #zero EQE about nmfilter      
-           
-        DBintegral = blackbody * EQEfilter      
-        Jdb = np.trapz(DBintegral, x=(xEQE*1e-9), axis=0)  
+            EQEfilter[i,:] *= (lam < nmfilter) #zero EQE about nmfilter
+
+        DBintegral = blackbody * EQEfilter
+        Jdb = np.trapz(DBintegral, x=(xEQE*1e-9), axis=0)
         Egnew = Egvect(TC, Jdb)
         if bplot: print(Egnew, max((Egnew-Eguess)/Egnew))
         if np.amax((Egnew-Eguess)/Egnew) < 1e-6:
             break
-        else: 
+        else:
             Eguess=Egnew
-     
+
     if bplot:
         efig, eax = plt.subplots()
         eax.plot(xEQE, DBintegral[:,0], c='blue', lw=2, marker='.')
         if njuncs > 1:
             reax = eax.twinx() #right axis
-            reax.plot(xEQE, DBintegral[:,1], c='red', lw=2, marker='.') 
+            reax.plot(xEQE, DBintegral[:,1], c='red', lw=2, marker='.')
 
     return Jdb, Egnew
 
 def PintMD(Pspec, xspec=wvl):
     #optical power of spectrum over full range
     return JintMD(None, None, Pspec, xspec)
-    
+
 def JintMD(EQE, xEQE, Pspec, xspec=wvl):
     '''
     integrate over spectrum or spectra
@@ -143,17 +156,17 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
         Jsc = int(Pspec*QE[0]*lambda) in [mA/cm2]
         EQE optionally scalar for constant over xEQE range
         integrate over full spectrum is xEQE is None
-    
+
     integrate multidimentional EQE(lambda)(junction) times MD reference spectra Pspec(lambda)(ispec)
-    external quantum efficiency EQE[unitless] x-units = nm, 
+    external quantum efficiency EQE[unitless] x-units = nm,
     reference spectra Pspec[W/m2/nm] x-units = nm
     optionally Pspec as string 'space', 'global', 'direct' or '' for all three
-    xEQE in nm, can optionally 
+    xEQE in nm, can optionally
         use (start, step) for equally spaced data
         use None for same as xspec
     default x values for Pspec from wvl
     '''
-    
+
     #check spectra input
     if type(Pspec) is str: # optional string space, global, direct
         if Pspec in dfrefspec.columns:
@@ -170,11 +183,11 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
         nSlams, nspecs = Pspec.shape
     else:
         return 'dims in Pspec:' + str(Pspec.ndim)
-        
+
     #check EQE input
     EQE = np.array(EQE)  #ensure numpy
     if EQE.ndim == 0: #scalar or None
-        if np.any(EQE): 
+        if np.any(EQE):
             nQlams=1    #scalar -> return current
             njuncs=1
         else:
@@ -187,23 +200,23 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
         nQlams, njuncs = EQE.shape
     else:
         return 'dims in EQE:' + str(EQE.ndim)
-    
+
     #check x range input
     xEQE = np.array(xEQE, dtype=np.float64)
     if xEQE.ndim == 0: #scalar or None
         xEQE = xspec    #use spec range if no EQE range
     if xEQE.ndim == 1: #1D
-        nxEQE,  = xEQE.shape 
+        nxEQE,  = xEQE.shape
         start = min(xEQE)
-        stop = max(xEQE) 
+        stop = max(xEQE)
         if nxEQE == 2: # evenly spaced x-values (start, stop)
             xEQE= np.linspace(start, stop, max(nQlams,2), dtype=np.float64)
     else:
         return 'dims in xEQE:' + str(xEQE.ndim)
-           
+
     if nQlams == 1:
         EQE = np.full_like(xEQE,EQE)
-        
+
     if xspec.ndim != 1: # need 1D with same length as Pspec(lam)
         return 'dims in xspec:' + str(xspec.ndim) + '!=1'
     elif len(xspec) != nSlams:
@@ -215,14 +228,14 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
         pass
     elif len(xEQE) != nQlams:
         return 'nQlams:' + str(len(xEQE)) + '!='+ str(nQlams)
-        
+
     #find start and stop index  of nSlams
     n0=0
     n1=nSlams-1
     for i, lam in enumerate(xspec):
         if lam <= min(start,stop):
             n0 = i
-        elif lam <= max(start,stop):            
+        elif lam <= max(start,stop):
             n1 = i
         else:
             break
@@ -233,7 +246,7 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
             Jintegral = Pspec.copy()[n0:n1+1] #for Ptot
         else:
             Jintegral = Pspec.copy()[n0:n1+1,:] #for Ptot
-        
+
     else: #calculate J over xrange
         #print(xrange.shape, xEQE.shape, EQE.shape, Pspec.shape)
         EQEinterp = interp1d(xEQE, EQE, axis=0, fill_value=0) # interpolate along axis=0
@@ -249,9 +262,9 @@ def JintMD(EQE, xEQE, Pspec, xspec=wvl):
                 Jintegral[:,:,ijunc] = Pspec.copy()[n0:n1+1,:] #for Ptot
             Jintegral[:,:,ijunc] *= EQEfine[:, np.newaxis, ijunc]
 
-    Jint = np.trapz(Jintegral, x=xrange, axis=0)     
+    Jint = np.trapz(Jintegral, x=xrange, axis=0)
     #print(xrange.shape, EQEfine.shape, EQE.shape, Pspec.shape, Jintegral.shape)
-    #print(nSlams, nspecs, njuncs, nQlams, start, stop, xspec[n0], xspec[n1], n0, n1)    
+    #print(nSlams, nspecs, njuncs, nQlams, start, stop, xspec[n0], xspec[n1], n0, n1)
     return Jint
 
 @lru_cache(maxsize = 100)
@@ -262,7 +275,7 @@ def JdbFromEg(TC,Eg,dbsides=1.,method=None):
     Eg[=]eV
     TK[=]K
     returns Jdb[=]A/cm2
-    
+
     optional parameters
     method: 'gamma'
     dbsides:    single-sided->1.  bifacial->2.
@@ -275,7 +288,7 @@ def JdbFromEg(TC,Eg,dbsides=1.,method=None):
     if str(method).lower=='gamma':
         #use special function incomplete gamma
         #gamma(3)=2.0 not same incomplete gamma as in Igor
-        Jdb = DB_PREFIX * TKlocal**3. * gammaincc(3., EgkT) * 2.0 * dbsides    
+        Jdb = DB_PREFIX * TKlocal**3. * gammaincc(3., EgkT) * 2.0 * dbsides
     else:
         #Jdb as in Geisz et al.
         Jdb = DB_PREFIX * TKlocal**3. * (EgkT*EgkT + 2.*EgkT + 2.) * np.exp(-EgkT) * dbsides    #units from DB_PREFIX
@@ -289,8 +302,8 @@ def EgFromJdb(TC, Jdb, Eg=1.0, eps=1e-6, itermax=100, dbsides=1.):
     return the bandgap from the Jdb
     assuming a square EQE
     iterates using gammaInc(3,x)=2*exp(-x)*(1+x+x^2/2)
-    see special functions, Andrews p.73  
-      
+    see special functions, Andrews p.73
+
     optional parameters
     Eg=1.0 eV    #initial guess
     eps=0.001    #tolerance
@@ -321,7 +334,7 @@ class EQE(object):
     EQE object
     It creates a class containing nth junctions EQEs and Luminescent Coupling
     between junctions. The contribution can be studied interectively using
-    ipywidgets under a notebook. 
+    ipywidgets under a notebook.
     The methods
     self.control create the self.ui to adjust the LC
     self.plot function to plot
@@ -333,7 +346,7 @@ class EQE(object):
             rawEQE (numpy.array):  2D(lambda)(junction) raw input rawEQE (not LC corrected)
             xEQE(numpy.array)      xEQE        # wavelengths [nm] for rawEQE data
             name (str):            name of EQE object, sample
-            sjuncs [list of str]:          labels for the junctions, if None it is self generated 
+            sjuncs [list of str]:          labels for the junctions, if None it is self generated
 
             The number of junctions is created from the dimension of the EQE
             self.njuncs = njuncs    # number of junctions
@@ -341,7 +354,7 @@ class EQE(object):
         #check EQE input
         rawEQE = np.array(rawEQE)  #ensure numpy
         if rawEQE.ndim == 0: #scalar or None
-            if np.any(rawEQE): 
+            if np.any(rawEQE):
                 nQlams=1    #scalar -> return current
                 njuncs=1
             else:
@@ -355,15 +368,15 @@ class EQE(object):
             nQlams, njuncs = rawEQE.shape
         else:
             return 'dims in rawEQE:' + str(rawEQE.ndim)
-    
+
         #check x range input
         xEQE = np.array(xEQE, dtype=np.float64)
         if xEQE.ndim == 0: #scalar or None
             xEQE = xspec    #use spec range if no rawEQE range
         if xEQE.ndim == 1: #1D
-            nxEQE,  = xEQE.shape 
+            nxEQE,  = xEQE.shape
             self.start = min(xEQE)
-            self.stop = max(xEQE) 
+            self.stop = max(xEQE)
             if nxEQE == 2: # evenly spaced x-values (start, stop)
                 xEQE= np.linspace(self.start, self.stop, max(nQlams,2), dtype=np.float64)
         else:
@@ -380,11 +393,11 @@ class EQE(object):
             return 'nQlams:' + str(len(xEQE)) + '!='+ str(nQlams)
 
         if sjuncs == None:
-            sjuncs = [num2words(junc+1, to = 'ordinal') for junc in range(njuncs)]
+            sjuncs = [ordinal(junc+1) for junc in range(njuncs)]
 
         #class attributes
-        
-        self.ui = None      
+
+        self.ui = None
         self.debugout = widgets.Output() # debug output
         self.name = name        # name of EQE object
         self.rawEQE = rawEQE    # 2D(lambda)(junction) raw input rawEQE (not LC corrected)
@@ -392,16 +405,16 @@ class EQE(object):
         self.njuncs = njuncs    # number of junctions
         self.sjuncs = sjuncs    # names of junctions
         self.nQlams = nQlams    # number of wavelengths in rawEQE data
- 
-        self.corrEQE = np.empty_like(self.rawEQE)  # luminescent coupling corrected EQE same size as rawEQE      
+
+        self.corrEQE = np.empty_like(self.rawEQE)  # luminescent coupling corrected EQE same size as rawEQE
         self.etas = np.zeros((njuncs,3), dtype=np.float64) #LC factor for next three junctions
         self.LCcorr() #calculate LC with zero etas
-        
+
     def LCcorr(self, junc=None, dist=None, val=None):
-        """It applies the correction of the Luminescent 
+        """It applies the correction of the Luminescent
         coupling to the QE
         junc [l
-        using procedure from 
+        using procedure from
         Steiner et al., IEEE PV, v3, p879 (2013)
         """
         # change one eta[junc,dist] value
@@ -421,7 +434,7 @@ class EQE(object):
             elif ijunc == 1: #2nd ijunction
                 denom=1.+etas[ijunc,0]
                 self.corrEQE[:,ijunc] = raw[:,ijunc] * denom \
-                    - raw[:,ijunc-1] * etas[ijunc,0] 
+                    - raw[:,ijunc-1] * etas[ijunc,0]
             elif ijunc == 2: #3rd ijunction
                 denom=1.+etas[ijunc,0]*(1.+etas[ijunc,1])
                 self.corrEQE[:,ijunc] = raw[:,ijunc] * denom \
@@ -433,36 +446,36 @@ class EQE(object):
                     - raw[:,ijunc-1] * etas[ijunc,0] \
                     - raw[:,ijunc-2] * etas[ijunc,0] * etas[ijunc,1] \
                     - raw[:,ijunc-3] * etas[ijunc,0] * etas[ijunc,1] * etas[ijunc,2]
-                
+
     def Jdb(self, TC, Eguess = 1.0, kTfilter=3, dbug=False):
         """It calculate Jscs and Egs from self.corrEQE"""
-        Vthlocal = Vth(TC) #kT   
+        Vthlocal = Vth(TC) #kT
         Eguess = np.array([Eguess] * self.njuncs)
         Egvect = np.vectorize(EgFromJdb)
         EkT = nm2eV / Vthlocal / self.xEQE
         blackbody = np.expand_dims(DBWVL_PREFIX / (self.xEQE*1e-9)**4 / np.expm1(EkT) , axis=1)
-    
-        for count in range(10): 
+
+        for count in range(10):
             nmfilter = nm2eV/(Eguess - Vthlocal * kTfilter) #MD [652., 930.]
             EQEfilter = self.corrEQE.copy()
-            
+
             for i, lam in enumerate(self.xEQE):
-                EQEfilter[i,:] *= (lam < nmfilter) #zero EQE about nmfilter      
-           
-            DBintegral = blackbody * EQEfilter      
-            Jdb = np.trapz(DBintegral, x=(self.xEQE*1e-9), axis=0)  
+                EQEfilter[i,:] *= (lam < nmfilter) #zero EQE about nmfilter
+
+            DBintegral = blackbody * EQEfilter
+            Jdb = np.trapz(DBintegral, x=(self.xEQE*1e-9), axis=0)
             Egnew = Egvect(TC, Jdb)
             if dbug: print(Egnew, max((Egnew-Eguess)/Egnew))
             if np.amax((Egnew-Eguess)/Egnew) < 1e-6:
                 break
-            else: 
+            else:
                 Eguess=Egnew
             self.Egs = Egnew
 
         return Jdb, Egnew
 
     def Jint(self,  Pspec='global', xspec=wvl):
-        """It integrates over spectrum or spectra 
+        """It integrates over spectrum or spectra
              J = spectra * lambda * EQE(lambda)
            Jsc = int(Pspec*QE[0]*lambda) in [mA/cm2]
            EQE optionally scalar for constant over xEQE range
@@ -498,13 +511,13 @@ class EQE(object):
         for i, lam in enumerate(xspec):
             if lam <= min(self.start,self.stop):
                 n0 = i
-            elif lam <= max(self.start,self.stop):            
+            elif lam <= max(self.start,self.stop):
                 n1 = i
             else:
                 break
         xrange = xspec[n0:n1+1] # range of xspec values within xEQE range
         nrange = abs(n1+1-n0)
-        
+
         #remember these for now
         self.Pspec = Pspec      # 2D(lambda)(spectrum) spectral irradiance [W/m2/nm]
         self.xspec = xspec      # wavelengths [nm] for spectra
@@ -518,19 +531,19 @@ class EQE(object):
         EQEfine = EQEinterp(xrange) * xrange[:,np.newaxis] * JCONST # lambda*EQE(lambda)[lambda,junc]
         for ijunc in range(self.njuncs):
             Jintegral[:,:,ijunc] = Pspec[n0:n1+1,:] * EQEfine[:, np.newaxis, ijunc]
-        return np.trapz(Jintegral, x=xrange, axis=0)     
-    
+        return np.trapz(Jintegral, x=xrange, axis=0)
+
     def plot(self, Pspec='global', ispec=0, specname=None, xspec=wvl, size='x-large'):
         # plot EQE on top of a spectrum
         rnd2 =100
-      
+
         fig, ax = plt.subplots()
         ax.set_prop_cycle(color=Multi2T.junctioncolors[self.njuncs])
         for i in range(self.njuncs):
             rlns = ax.plot(self.xEQE, self.rawEQE[:,i], lw=1, ls='--', marker='', label='_'+self.sjuncs[i])
             ax.plot(self.xEQE, self.corrEQE[:,i], lw=3, c=rlns[0].get_color(), marker='', label=self.sjuncs[i])
         ax.legend()
-        ax.set_ylim(-0.1,1.1)      
+        ax.set_ylim(-0.1,1.1)
         ax.set_xlim(math.floor(self.start/rnd2)*rnd2, math.ceil(self.stop/rnd2)*rnd2)
         ax.set_ylabel('EQE', size=size)  # Add a y-label to the axes.
         ax.set_xlabel('Wavelength (nm)', size=size)  # Add an x-label to the axes.
@@ -549,7 +562,7 @@ class EQE(object):
                 Pspec = dfrefspec.to_numpy(dtype=np.float64, copy=True) #just use refspec instead of error
 
         if np.any(Pspec):
-            Pspec = np.array(Pspec, dtype=np.float64)            
+            Pspec = np.array(Pspec, dtype=np.float64)
             if not specname: specname='spectrum'+str(ispec)
             if Pspec.ndim == 2: Pspec = Pspec[:,ispec] #slice 2D numpy to 1D
             rax.fill_between(xspec, Pspec, step="mid", alpha=0.2, color='grey', label='fill')
@@ -558,7 +571,7 @@ class EQE(object):
             rax.set_ylim(0,2)
             #rax.legend(loc=7)
         return ax, rax
-        
+
     def controls(self, Pspec='global', ispec=0, specname=None, xspec=wvl):
         '''
         use interactive_output for GUI in IPython
@@ -568,11 +581,11 @@ class EQE(object):
         junc_layout = widgets.Layout(display='flex',
                     flex_flow='row',
                     justify_content='space-around')
-        multi_layout = widgets.Layout(display='flex', 
+        multi_layout = widgets.Layout(display='flex',
                     flex_flow='row',
                     justify_content='space-around')
 
-        replot_types = [widgets.widgets.widget_float.BoundedFloatText, 
+        replot_types = [widgets.widgets.widget_float.BoundedFloatText,
                         widgets.widgets.widget_int.BoundedIntText,
                         widgets.widgets.widget_int.IntSlider,
                         widgets.widgets.widget_float.FloatSlider,
@@ -584,7 +597,7 @@ class EQE(object):
             new = change['new'] #new value
             owner = change['owner'] #control
             value = owner.value
-            desc = owner.description            
+            desc = owner.description
             #with self.debugout: print('Mcontrol: ' + desc + '->', value)
             #self.set(**{desc:value})
 
@@ -594,13 +607,13 @@ class EQE(object):
             if type(change) is widgets.widgets.widget_button.Button:
                 owner = change
             else: # other controls
-                owner = change['owner'] #control 
-                value = owner.value               
-            desc = owner.description  
+                owner = change['owner'] #control
+                value = owner.value
+            desc = owner.description
             if desc == 'Recalc': fast = False
-              
-            #recalculate            
-            ts = time()  
+
+            #recalculate
+            ts = time()
             if desc[:3] == 'eta':
                 junc, dist = parse('eta{:1d}{:1d}',desc)
                 self.LCcorr(junc, dist, value) #replace one value and recalculate LC
@@ -608,7 +621,7 @@ class EQE(object):
             elif desc == 'spec':
                 if value in dfrefspec.columns:
                     specname = value
-                    Pspec = dfrefspec[specname].to_numpy(dtype=np.float64, copy=True)              
+                    Pspec = dfrefspec[specname].to_numpy(dtype=np.float64, copy=True)
             else:
                 VoutBox.clear_output()
                 with VoutBox: print(desc)
@@ -623,7 +636,7 @@ class EQE(object):
                     for i in range(self.njuncs):
                         if linelabel == self.sjuncs[i]:
                              line.set_data(self.xEQE, self.corrEQE[:,i]) #replot
-                            
+
                 rlines = rax.get_lines()
                 for line in rlines:
                     linelabel=line.get_label()
@@ -633,7 +646,7 @@ class EQE(object):
                              specname = linelabel
                              Pspec = specname
                         else:
-                            line.set_data(xspec, Pspec) #replot spectrum 
+                            line.set_data(xspec, Pspec) #replot spectrum
                             for obj in rax.get_children():
                                 if type(obj) is mpl.collections.PolyCollection: #contours
                                     if obj.get_label() == 'fill':
@@ -646,8 +659,8 @@ class EQE(object):
             OP = PintMD(Pspec, xspec)
 
             VoutBox.clear_output()
-            with VoutBox: 
-                stext = (specname+' {0:6.2f} W/m2').format(OP) 
+            with VoutBox:
+                stext = (specname+' {0:6.2f} W/m2').format(OP)
                 print('Eg = ',Egs, ' eV')
                 print(stext)
                 print('Jsc = ',Jscs[0], ' mA/cm2')
@@ -660,11 +673,11 @@ class EQE(object):
         VoutBox = widgets.Output()
         VoutBox.layout.height = '70px'
         #with VoutBox: print('Summary')
-            
+
         # Right output -> EQE plot
         Rout = widgets.Output()
         with Rout: # output device
-            if plt.isinteractive: 
+            if plt.isinteractive:
                 plt.ioff()
                 restart = True
             else:
@@ -678,15 +691,15 @@ class EQE(object):
                 if linelabel in refnames:
                     specname = linelabel
             if restart: plt.ion()
-        
+
         # tandem3T controls
         in_tit = widgets.Label(value='EQE: ', description='title')
         in_name = widgets.Text(value=self.name, description='name', layout=tand_layout,
-            continuous_update=False)                        
+            continuous_update=False)
         in_name.observe(on_EQEchange,names='value') #update values
-        
+
         in_spec = widgets.Dropdown(value=specname, description='spec', layout=tand_layout,
-            options=refnames)                        
+            options=refnames)
         in_spec.observe(on_EQEreplot,names='value') #update values
 
         Hui = widgets.HBox([in_tit, in_name, in_spec])
@@ -697,14 +710,14 @@ class EQE(object):
         elist1 = []
         elist2 = []
         # list of eta controls
-        for i in range(self.njuncs) : 
-            if i > 0:          
+        for i in range(self.njuncs) :
+            if i > 0:
                 in_eta.append(widgets.FloatSlider(value=self.etas[i,0], min=-0.2, max=1.5,step=0.001,
                     description='eta'+str(i)+"0",layout=junc_layout,readout_format='.4f'))
                 j = len(in_eta)-1
                 elist0.append(in_eta[j])
                 in_eta[j].observe(on_EQEreplot,names='value')  #replot
-            #if i > 1:          
+            #if i > 1:
                 in_eta.append(widgets.FloatSlider(value=self.etas[i,1], min=-0.2, max=1.5,step=0.001,
                     description='eta'+str(i)+"1",layout=junc_layout,readout_format='.4f'))
                 j = len(in_eta)-1
@@ -713,8 +726,8 @@ class EQE(object):
                 if i > 1:
                     in_eta[j].observe(on_EQEreplot,names='value')  #replot
                 else:
-                    in_eta[j].disabled = True 
-            #if i > 2:          
+                    in_eta[j].disabled = True
+            #if i > 2:
                 in_eta.append(widgets.FloatSlider(value=self.etas[i,2], min=-0.2, max=1.5,step=0.001,
                     description='eta'+str(i)+"2",layout=junc_layout,readout_format='.4f'))
                 j = len(in_eta)-1
@@ -722,21 +735,21 @@ class EQE(object):
                 if i > 2:
                     in_eta[j].observe(on_EQEreplot,names='value')  #replot
                 else:
-                    in_eta[j].disabled = True 
+                    in_eta[j].disabled = True
         etaui0 = widgets.HBox(elist0)
         etaui1 = widgets.HBox(elist1)
         etaui2 = widgets.HBox(elist2)
-            
+
         #in_Rs2T.observe(on_2Treplot,names='value')  #replot
-        #in_2Tbut.on_click(on_2Treplot)  #replot  
- 
+        #in_2Tbut.on_click(on_2Treplot)  #replot
+
         #EQE_ui = widgets.HBox(clist)
-        #eta_ui = widgets.HBox(jui) 
-        
+        #eta_ui = widgets.HBox(jui)
+
         ui = widgets.VBox([Rout, VoutBox, Hui, etaui0, etaui1, etaui2])
         self.ui = ui
         #in_2Tbut.click() #fill in MPP values
 
         # return entire user interface, dark and light graph axes for tweaking
         return ui, ax, rax
-        
+

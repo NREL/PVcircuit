@@ -7,6 +7,7 @@ This is the PVcircuit Package.
 import copy
 import math  # simple math
 import os
+import re
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt  # plotting
@@ -172,6 +173,8 @@ class IV3T(object):
             elif i == prntmax:
                 strout += "\n\n"
 
+        # Clean string from numpy types present after numpy > 2.x.x
+        strout = re.sub(r"np\.(?:int|float|int64|float64)\(([^)]+)\)", r"\1", strout)
         return strout
 
     def __repr__(self):
