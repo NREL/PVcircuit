@@ -26,7 +26,7 @@ build-backend = "setuptools.build_meta"  # If not defined, then legacy behavior 
 # There are some restrictions on what makes a valid project name
 # specification here:
 # https://packaging.python.org/specifications/core-metadata/#name
-name = "PVcircuit"  # REQUIRED, is the only field that cannot be marked as dynamic.
+name = "pvcircuit"  # REQUIRED, is the only field that cannot be marked as dynamic.
 
 # Versions should comply with PEP 440:
 # https://www.python.org/dev/peps/pep-0440/
@@ -173,16 +173,24 @@ test = [
 
 # This is configuration specific to the `setuptools` build backend.
 # If you are using a different build backend, you will need to change this.
-[tool.setuptools]
+# [tool.setuptools]
 # If there are data files included in your packages that need to be
 # installed, specify them here.
 # package-data = {"sample" = ["*.dat"]}
-packages = ["pvcircuit"]  # Adjust based on your actual package structure
+# packages = ["pvcircuit"]  # Adjust based on your actual package structure
 # package-data = {"pvcircuit" = ["data/*"]}
 # include-package-data = true
-[options.package_data]
-pvcircuit ="data/*"
+# [options.package_data]
+# pvcircuit ="data/*"
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["pvcircuit*"]
+
+[tool.setuptools.package-data]
+pvcircuit = ["data/*"]
 
 [tool.ruff]
 # select = ["E", "W", "F"]  # Select categories of linting rules
