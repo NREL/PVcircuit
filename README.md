@@ -1,3 +1,5 @@
+[![Python Tests](https://github.com/NREL/PVcircuit/actions/workflows/tomlproject.yml/badge.svg?branch=master)](https://github.com/NREL/PVcircuit/actions/workflows/tomlproject.yml)
+
 # pvcircuit
 *pvcircuit* contains objects that are building blocks for PV modeling and interactive data fitting.
 

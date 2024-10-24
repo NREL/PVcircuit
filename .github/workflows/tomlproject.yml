@@ -28,9 +28,11 @@ jobs:
       # Lint with Ruff
       # - name: Lint with Ruff
       #   run: |
-      #     ruff check . --statistics  # Lint the code using Ruff
+      #     ruff check . --statistics
 
       # Run pyest
       - name: Run Tests
         run: |
-          pytest
+          pytest --cov=pvcircuit
+          coverage xml
+          coverage html

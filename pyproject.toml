@@ -148,13 +148,14 @@ dev = [
     "check-manifest",
     "coverage",
     "pytest",
+    "pytest-cov",
     "ruff",
-
     ]
 test = [
     "check-manifest",
     "coverage",
-    "pytest"
+    "pytest",
+    "pytest-cov",
     ]
 
 # List URLs that are relevant to your project
@@ -198,3 +199,22 @@ ignore = [
     "F401", # Ignore unused imports
     # "F841", # Ignore unused variables
 ]
+
+[tool.pytest.ini_options]
+# Specify directories to ignore during testing
+norecursedirs = ["Share", "notebooks", "images", "data"]
+
+[tool.coverage.run]
+branch = true
+source = ["pvcircuit"]
+omit = [
+    "tests/*",
+    "Share/*",
+    "notebooks/*",
+    "images/*",
+    "data/*",
+    "pvcircuit/PlotWithControls.py",
+]
+
+[tool.coverage.report]
+show_missing = false
