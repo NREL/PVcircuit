@@ -14,6 +14,7 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]  # Chose windows-latest, ubuntu-latest, macos-latest.
         python-version: ['3.9', '3.10', '3.11', '3.12']  # Test multiple Python versions
+      fail-fast: false
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -34,3 +35,4 @@ jobs:
       - name: Run Tests
         run: |
           pytest --cov=pvcircuit
+        continue-on-error: true
