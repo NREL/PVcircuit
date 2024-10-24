@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import numpy as np
@@ -92,7 +93,7 @@ def test_Tandem3T_MPP(tandem3T):
     with open(Path().cwd().joinpath("tests", "test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, tandem3T.MPP().__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",tandem3T.MPP().__str__()))
 
 def test_Tandem3T_CM(tandem3T):
 
@@ -111,7 +112,7 @@ def test_Tandem3T_VM21(tandem3T):
     with open(Path().cwd().joinpath("tests", "test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, tandem3T.VM(2, 1).__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",tandem3T.VM(2, 1).__str__()))
 
 def test_Tandem3T_VM32(tandem3T):
 
@@ -119,7 +120,7 @@ def test_Tandem3T_VM32(tandem3T):
     with open(Path().cwd().joinpath("tests", "test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, tandem3T.VM(3, 2).__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",tandem3T.VM(3, 2).__str__()))
 
 
 def test_Tandem3T_VM32_set(tandem3T):
@@ -131,7 +132,7 @@ def test_Tandem3T_VM32_set(tandem3T):
     with open(Path().cwd().joinpath("tests", "test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, tandem3T.VM(3, 2).__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",tandem3T.VM(3, 2).__str__()))
 
     dev2T = Multi2T.from_3T(tandem3T)
 

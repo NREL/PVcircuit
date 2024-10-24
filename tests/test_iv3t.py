@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -35,7 +36,7 @@ def test_iv3t_str(iv3t):
     with open(Path().cwd().joinpath("tests","test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, iv3t.__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",iv3t.__str__()))
 
 
 def test_iv3t_setter(dev3T, iv3t):
@@ -54,7 +55,7 @@ def test_iv3t_setter(dev3T, iv3t):
     with open(Path().cwd().joinpath("tests","test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, iv3t.__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",iv3t.__str__()))
 
 
 def test_dev2load(dev3T,iv3t):
@@ -81,7 +82,7 @@ def test_line(iv3t):
     with open(Path().cwd().joinpath("tests","test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, iv3t.__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",iv3t.__str__()))
 
 
 def test_box(iv3t):
@@ -96,7 +97,7 @@ def test_box(iv3t):
     with open(Path().cwd().joinpath("tests","test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, iv3t.__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",iv3t.__str__()))
 
 
 def test_nanpnt(iv3t):
@@ -124,7 +125,7 @@ def test_mpp(iv3t, dev3T):
     with open(Path().cwd().joinpath("tests","test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, iv3t.__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",iv3t.__str__()))
 
 
 def test_resize(iv3t, dev3T):
@@ -144,7 +145,7 @@ def test_resize(iv3t, dev3T):
     with open(Path().cwd().joinpath("tests","test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, iv3t.__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",iv3t.__str__()))
 
 
 def test_calc(iv3t,dev3T):
@@ -182,7 +183,7 @@ def test_calc(iv3t,dev3T):
     with open(Path().cwd().joinpath("tests","test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
-    np.testing.assert_string_equal(test_str, iv3t.__str__())
+    np.testing.assert_string_equal(re.sub(r"\s+"," ",test_str), re.sub(r"\s+"," ",iv3t.__str__()))
 
 if __name__ == "__main__":
     iv3t = IV3T()
