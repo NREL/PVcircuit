@@ -8,6 +8,7 @@ import copy
 import glob
 import multiprocessing as mp
 import os
+import warnings
 from functools import lru_cache
 
 import numpy as np  # arrays
@@ -17,6 +18,12 @@ from scipy import constants
 from tqdm import tqdm, trange
 
 import pvcircuit as pvc
+
+warnings.warn(
+    "The 'EY.py' module is deprecated and will be change in future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 #  from 'Tandems' project
 # vectoriam = np.vectorize(physicaliam)
