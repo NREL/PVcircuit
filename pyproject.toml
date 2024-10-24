@@ -203,6 +203,7 @@ ignore = [
 [tool.pytest.ini_options]
 # Specify directories to ignore during testing
 norecursedirs = ["Share", "notebooks", "images", "data"]
+addopts = "--cov=pvcircuit --cov-report=html" # run coverage automatically with pytest
 
 [tool.coverage.run]
 branch = true
@@ -217,4 +218,8 @@ omit = [
 ]
 
 [tool.coverage.report]
-show_missing = false
+show_missing = true # shows lines without coverage
+
+[tool.coverage.html]
+directory = "htmlcov"  # HTML output directory
+title = "PVcircuit coverage report"

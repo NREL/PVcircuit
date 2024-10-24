@@ -12,7 +12,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [windows-latest]  # Chose windows-latest, ubuntu-latest, macos-latest.
+        os: [windows-latest, ubuntu-latest]  # Chose windows-latest, ubuntu-latest, macos-latest.
         python-version: ['3.9', '3.10', '3.11', '3.12']  # Test multiple Python versions
     runs-on: ${{ matrix.os }}
 
@@ -34,5 +34,3 @@ jobs:
       - name: Run Tests
         run: |
           pytest --cov=pvcircuit
-          coverage xml
-          coverage html
