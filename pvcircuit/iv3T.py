@@ -452,7 +452,7 @@ class IV3T(object):
         # sort a iv3T line based on array key
         # unexpected results for iv3T box
         sortarray = getattr(self, key)
-        p = np.argsort(sortarray)
+        p = np.argsort(sortarray, kind="stable")
 
         for key in self.arraykeys:
             array = getattr(self, key)
