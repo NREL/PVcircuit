@@ -175,6 +175,9 @@ class IV3T(object):
 
         # Clean string from numpy types present after numpy > 2.x.x
         strout = re.sub(r"np\.(?:int|float|int64|float64)\(([^)]+)\)", r"\1", strout)
+        # replace negative 0
+        strout = re.sub(r'-0\.(0+)\b', r'0.\1 ', strout)
+
         return strout
 
     def __repr__(self):
