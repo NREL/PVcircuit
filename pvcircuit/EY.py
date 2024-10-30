@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-This is the PVcircuit Package.
-    pvcircuit.EY     use Ripalda's Tandem proxy spectra for energy yield
+Package to simulate energy yield
 """
 
 import copy
@@ -10,52 +9,46 @@ import multiprocessing as mp
 import os
 import warnings
 from functools import lru_cache
+from typing import Union
 
 import numpy as np  # arrays
 import pandas as pd
 from parse import parse
 from scipy import constants
+from scipy.integrate import trapezoid
+from scipy.special import erfc
 from tqdm import tqdm, trange
 
 import pvcircuit as pvc
 
-warnings.warn(
-    "The 'EY.py' module is deprecated and will be change in future version.",
-    DeprecationWarning,
-    stacklevel=2
-)
-
-#  from 'Tandems' project
-# vectoriam = np.vectorize(physicaliam)
-GITpath = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-RIPpath = os.path.join(GITpath, "Tandems")  # assuming 'Tandems' is in parallel GitHub folders
-FARMpath = os.path.join(RIPpath, "FARMS-NIT-clustered-spectra-USA", "")
-
-# list of data locations
-clst_axis = glob.glob(FARMpath + "*axis.clusters.npz")
-clst_tilt = glob.glob(FARMpath + "*tilt.clusters.npz")
-tclst_axis = glob.glob(FARMpath + "*axis.timePerCluster.npz")
-tclst_tilt = glob.glob(FARMpath + "*tilt.timePerCluster.npz")
-clst_axis.sort()
-tclst_axis.sort()
-clst_tilt.sort()
-tclst_tilt.sort()
+warnings.warn("The 'EY.py' module is deprecated and will be change in future version.", DeprecationWarning, stacklevel=2)
 
 
-@lru_cache(maxsize=100)
-def VMloss(type3T, bot, top, ncells):
-    # calculates approximate loss factor for VM strings of 3T tandems
-    if bot == 0:
-        endloss = 0
-    elif top == 0:
-        endloss = 0
-    elif type3T == "r":
-        endloss = max(bot, top) - 1
-    elif type3T == "s":
-        endloss = bot + top - 1
-    else:  # not Tandem3T
-        endloss = 0
-    lossfactor = 1 - endloss / ncells
+def VMloss(model: Union['pvc.Tandem3T', 'pvc.Multi2T'], oper: str, ncells: int):
+
+    if isinstance(model, pvc.Multi2T):  # Multi2T or current matched 2-junction tandem
+        return 1
+
+    elif isinstance(model, pvc.Tandem3T):  # Tandem3T
+        tandem_type = oper.split("-")
+
+        if tandem_type[0] == "MPP" or tandem_type[0] == "CM":
+            return 1
+        elif tandem_type[0] == "VM":
+            if len(tandem_type) != 3:
+                raise ValueError("3T voltage matched operation must be VM-[bc/tc ratio]-[r/s-type], e.g. VM-21-r")
+            vm_ratio = tuple(map(int, tandem_type[1]))
+
+            if tandem_type[2] == "r":
+                endloss = max(vm_ratio) - 1
+            elif tandem_type[2] == "s":
+                endloss = sum(vm_ratio) - 1
+            else:
+                raise ValueError("Unknown model")
+    else:
+        raise ValueError("Unknown model")
+
+    lossfactor = max(0,1 - endloss / ncells)
     return lossfactor
 
 
@@ -63,28 +56,21 @@ def VMloss(type3T, bot, top, ncells):
 def VMlist(mmax):
     # generate a list of VM configurations + 'MPP'=4T and 'CM'=2T
     # mmax < 10 for formating reasons
+    if mmax > 9:
+        raise ValueError("mmmax must be smaller than 10")
 
-    sVM = ["MPP", "CM", "VM11"]
+    sVM = ["MPP", "CM"]  # Initialize sVM with predefined elements
+    primes = [2, 3, 5]
     for m in range(mmax + 1):
         for n in range(1, m):
-            lcd = 2
-            if m / lcd == round(m / lcd) and n / lcd == round(n / lcd):
-                # print(n,m, 'skip2')
+            if any(m % p == 0 and n % p == 0 for p in primes):
                 continue
-            lcd = 3
-            if m / lcd == round(m / lcd) and n / lcd == round(n / lcd):
-                # print(n,m, 'skip3')
-                continue
-            lcd = 5
-            if m / lcd == round(m / lcd) and n / lcd == round(n / lcd):
-                # print(n,m, 'skip5')
-                continue
-            # print(n,m, 'ok')
-            sVM.append("VM" + str(m) + str(n))
+            sVM.append(f"VM{m}{n}")
     return sVM
 
+
 def sandia_T(poa_global, wind_speed, temp_air):
-    """ Sandia solar cell temperature model
+    """Sandia solar cell temperature model
     Adapted from pvlib library to avoid using pandas dataframes
     parameters used are those of 'open_rack_cell_polymerback'
     """
@@ -93,7 +79,7 @@ def sandia_T(poa_global, wind_speed, temp_air):
     b = -0.075
     deltaT = 3
 
-    E0 = 1000.  # Reference irradiance
+    E0 = 1000.0  # Reference irradiance
 
     temp_module = poa_global * np.exp(a + b * wind_speed) + temp_air
 
@@ -101,289 +87,138 @@ def sandia_T(poa_global, wind_speed, temp_air):
 
     return temp_cell
 
-# def _calc_yield_async(i, bot, top, type3T, Jscs, Egs, TempCell, devlist, oper):
-#     model = devlist[i]
-#     if type3T == "2T":  # Multi2T
-#         for ijunc in range(model.njuncs):
-#             # model.j[ijunc].set(Eg=Egs[ijunc], Jext=Jscs[i, ijunc], TC=TempCell[i])
-#             model.j[ijunc].set(Eg=Egs[i,ijunc], Jext=Jscs[i, ijunc], TC=25)
-#         mpp_dict = model.MPP()  # oper ignored for 2T
-#         Pmax = mpp_dict["Pmp"]
-#     elif type3T in ["s", "r"]:  # Tandem3T
-#         model.top.set(Eg=Egs[i,0], Jext=Jscs[i, 0], TC=TempCell[i])
-#         # model.top.set(Eg=Egs[0], Jext=Jscs[i, 0], TC=TempCell)
-#         model.bot.set(Eg=Egs[i,1], Jext=Jscs[i, 1], TC=TempCell[i])
-#         # model.bot.set(Eg=Egs[1], Jext=Jscs[i, 1], TC=25)
-#         if oper == "MPP":
-#             tempRz = model.Rz
-#             model.set(Rz=0)
-#             iv3T = model.MPP()
-#             model.set(Rz=tempRz)
-#         elif oper == "CM":
-#             ln, iv3T = model.CM()
-#         elif oper[:2] == "VM":
-#             ln, iv3T = model.VM(bot, top)
-#         else:
-#             iv3T = pvc.iv3T.IV3T("bogus")
-#             iv3T.Ptot[0] = 0
-#         Pmax = iv3T.Ptot[0]
-#     else:
-#         Pmax = 0.0
-#     # outPowerMP[i] = Pmax *1e4
-#     return Pmax * 1e4
 
-def _calc_yield_async(bot, top, type3T, Jscs, Egs, TempCell, devlist, oper):
+def _calc_yield_async(Jscs, Egs, TempCell, devlist, oper):
     Pmax_out = np.zeros(len(Jscs))
+
     for i in range(len(Jscs)):
         model = devlist[i]
-        if type3T == "2T":  # Multi2T
+        if isinstance(model, pvc.Multi2T):  # Multi2T or current matched 2-junction tandem
             for ijunc in range(model.njuncs):
-                # model.j[ijunc].set(Eg=Egs[ijunc], Jext=Jscs[i, ijunc], TC=TempCell[i])
-                model.j[ijunc].set(Eg=Egs[i,ijunc], Jext=Jscs[i, ijunc], TC=25)
-            mpp_dict = model.MPP()  # oper ignored for 2T
+                model.j[ijunc].set(Eg=Egs[ijunc], Jext=Jscs[i, ijunc], TC=TempCell[i])
+
+            mpp_dict = model.MPP()
             Pmax = mpp_dict["Pmp"]
-        elif type3T in ["s", "r"]:  # Tandem3T
-            model.top.set(Eg=Egs[i,0], Jext=Jscs[i, 0], TC=TempCell.iloc[i])
-            # model.top.set(Eg=Egs[0], Jext=Jscs[i, 0], TC=TempCell)
-            model.bot.set(Eg=Egs[i,1], Jext=Jscs[i, 1], TC=TempCell.iloc[i])
-            # model.bot.set(Eg=Egs[1], Jext=Jscs[i, 1], TC=25)
-            if oper == "MPP":
+
+        elif isinstance(model, pvc.Tandem3T):  # Tandem3T
+            tandem_type = oper.split("-")
+
+            model.top.set(Eg=Egs[i, 0], Jext=Jscs[i, 0], TC=TempCell.iloc[i])
+            model.bot.set(Eg=Egs[i, 1], Jext=Jscs[i, 1], TC=TempCell.iloc[i])
+            if tandem_type[0] == "MPP":
                 tempRz = model.Rz
                 model.set(Rz=0)
                 iv3T = model.MPP()
                 model.set(Rz=tempRz)
-            elif oper == "CM":
+            elif tandem_type[0] == "CM":
                 ln, iv3T = model.CM()
-            elif oper[:2] == "VM":
-                ln, iv3T = model.VM(bot, top)
+            elif tandem_type[0] == "VM":
+                if len(tandem_type) != 3:
+                    raise ValueError("3T voltage matched operation must be VM-[bc/tc ratio]-[r/s-type], e.g. VM-21-r")
+                model.bot.pn = -1 if tandem_type[2] == "r" else 1
+                ln, iv3T = model.VM(*map(int, tandem_type[1]))
             else:
                 iv3T = pvc.iv3T.IV3T("bogus")
                 iv3T.Ptot[0] = 0
             Pmax = iv3T.Ptot[0]
         else:
             Pmax = 0.0
-        # outPowerMP[i] = Pmax *1e4
-        Pmax_out[i] = Pmax * 1e4
 
-    return Pmax_out
+        Pmax_out[i] = Pmax
 
-def cellmodeldesc(model, oper):
-    # return description of model and operation
-    # cell 'model' can be 'Multi2T' or 'Tandem3T'
-    #'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
-    # Outputs (bot, top, ratio, type3T)
-
-    # loss = 1.
-    bot = 0
-    top = 0
-    type3T = ""
-
-    if isinstance(model, pvc.multi2T.Multi2T):
-        type3T = "2T"
-    elif isinstance(model, pvc.tandem3T.Tandem3T):
-        if model.top.pn == model.bot.pn:
-            type3T = "r"
-        else:
-            type3T = "s"
-
-        if oper == "MPP":
-            ratio = -1.0
-        elif oper == "CM":
-            ratio = 0
-        elif oper[:2] == "VM":
-            bot, top = parse("VM{:1d}{:1d}", oper)
-            # loss = VMloss(type3T, bot, top, ncells)
-            ratio = bot / top
-        else:
-            print(oper + " not valid")
-            ratio = np.nan
-    else:
-        print("unknown model" + str(type(model)))
-        ratio = np.nan
-        type3T = ""
-
-    return bot, top, ratio, type3T
+    return Pmax_out  # Pmax in [W]
 
 
-class TMY(object):
+def si_eg_shift(temperature: float, bandgap_25: float) -> float:
     """
-    typical meterological year at a specific location
+    Temperature dependence of bandgap of a silicon cell.
+    See pvc.qe.EQE class for details about bandgap and sigma determination
+
+    Args:
+        temperature (float): target temperature
+        bandgap_25: bandgap at 25degC
+
+    Returns: bandgap at target temperature
     """
-
-    def __init__(self, i, tilt=False):
-
-        if not tilt:
-            # Boulder i=497
-            clst = clst_axis
-            tclst = tclst_axis
-        else:
-            # Boulder i=491
-            clst = clst_tilt
-            tclst = tclst_tilt
-
-        self.tilt = tilt
-        self.index = i
-        _, tail = os.path.split(clst[i])
-        self.name = tail.replace(".clusters.npz", "")
-        # self.name =  clst[i].split("/")[-1][:-13]  #posix only
-        self.longitude = float(self.name.split("_")[1])
-        self.latitude = float(self.name.split("_")[0])
-        self.altitude = float(self.name.split("_")[2])
-        self.zone = float(self.name.split("_")[3])
-
-        d1 = np.load(clst[i])
-        td1 = np.load(tclst[i])
-
-        arr_0 = d1["arr_0"]
-        tarr_0 = td1["arr_0"]
-
-        spec = arr_0[0, 154:172, :]
-        tspec = tarr_0[0, 154:172]
-
-        self.Temp = spec[:, 1].copy() * 1e6  # C
-        self.Wind = spec[:, 2].copy() * 1e6  # m/s
-        self.DayTime = arr_0[0, 0, -1].copy() * 24  # scalar
-        self.NTime = tspec  # Fraction of 1
-
-        aoi = spec[:, 5] * 1e6
-        self.Angle = np.array(aoi.tolist())
-        # aim = vectoriam(aoi)
-        #        aim = physicaliam(aoi)
-        # self.AngleMOD = np.array(aim.tolist())
-
-        spec[:, :5] = 0
-        spec[:, -1] = 0
-        self.Irradiance = np.array(spec.tolist()).transpose()  # transpose for integration with QE
-
-        # standard data
-        pvcpath = os.path.dirname(os.path.dirname(__file__))
-        datapath = os.path.join(pvcpath, "data", "")  # Data files here
-        # datapath = os.path.abspath(os.path.relpath('../data/', start=__file__))
-        # datapath = pvcpath.replace('/pvcircuit','/data/')
-        ASTMfile = os.path.join(datapath, "ASTMG173.csv")
-        dfrefspec = pd.read_csv(ASTMfile, index_col=0, header=2)
-
-        self.ref_wvl = dfrefspec.index.to_numpy(dtype=np.float64, copy=True)
-
-        # calculate from spectral proxy data only
-        self.SpecPower = np.trapz(self.Irradiance, x=self.ref_wvl, axis=0)  # optical power of each spectrum
-        self.RefPower = np.trapz(pvc.qe.refspec, x=self.ref_wvl, axis=0)  # optical power of each reference spectrum
-        # self.SpecPower = PintMD(self.Irradiance)
-        # self.RefPower = PintMD(pvc.qe.refspec)
-        self.TempCell = sandia_T(self.SpecPower, self.Wind, self.Temp)
-        self.inPower = self.SpecPower * self.NTime  # spectra power*(fractional time)
-        self.YearlyEnergy = self.inPower.sum() * self.DayTime * 365.25 / 1000  # kWh/m2/yr
-
-        self.outPower = np.empty_like(self.inPower)  # initialize outPower
-
-        self.Jdbs = None
-        self.Egs = None
-        self.JscSTCs = None
-        self.Jscs = None
-
-    def cellbandgaps(self, EQE, TC=25):
-        # subcell Egs for a given EQE class
-        self.Jdbs, self.Egs = EQE.Jdb(TC)  # Eg from EQE same at all temperatures
-
-    def cellcurrents(self, EQE, STC=False):
-        # subcell currents and Egs and under self TMY for a given EQE class
-
-        # self.JscSTCs = JintMD(EQE, xEQE, pvc.qe.refspec)/1000.
-        # self.Jscs = JintMD(EQE, xEQE, self.Irradiance) /1000.
-        if STC:
-            self.JscSTCs = EQE.Jint(pvc.qe.refspec) / 1000.0
-        else:
-            self.Jscs = EQE.Jint(self.Irradiance) / 1000.0
-
-    def cellSTCeff(self, model, oper, iref=1):
-        # max power of a cell under a reference spectrum
-        # self.Jscs and self.Egs must be calculate first using cellcurrents
-        # Inputs
-        # cell 'model' can be 'Multi2T' or 'Tandem3T'
-        #'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
-        # iref = 0 -> space
-        # iref = 1 -> global
-        # iref = 2 -> direct
-        # Outputs
-        # - STCeff efficiency of cell under reference spectrum (space,global,direct)
-
-        bot, top, _, type3T = cellmodeldesc(model, oper)  # ncells does not matter here
-
-        # calc reference spectra efficiency
-        if iref == 0:
-            Tref = 28.0  # space
-        else:
-            Tref = 25.0  # global and direct
-
-        if type3T == "2T":  # Multi2T
-            for ijunc in range(model.njuncs):
-                model.j[ijunc].set(Eg=self.Egs[ijunc], Jext=self.JscSTCs[iref, ijunc], TC=Tref)
-            mpp_dict = model.MPP()  # oper ignored for 2T
-            Pmax = mpp_dict["Pmp"] * 10.0
-        elif type3T in ["s", "r"]:  # Tandem3T
-            model.top.set(Eg=self.Egs[0], Jext=self.JscSTCs[iref, 0], TC=Tref)
-            model.bot.set(Eg=self.Egs[1], Jext=self.JscSTCs[iref, 1], TC=Tref)
-            if oper == "MPP":
-                iv3T = model.MPP()
-            elif oper == "CM":
-                _, iv3T = model.CM()
-            elif oper[:2] == "VM":
-                _, iv3T = model.VM(bot, top)
-            else:
-                print(oper + " not valid")
-                iv3T = pvc.iv3T.IV3T("bogus")
-                iv3T.Ptot[0] = 0
-            Pmax = iv3T.Ptot[0] * 10.0
-        else:
-            Pmax = 0.0
-
-        STCeff = Pmax * 1000.0 / self.RefPower[iref]
-
-        return STCeff
-
-    def cellEYeff(self, model, oper):
-        # max power of a cell under self TMY
-        # self.Jscs and self.Egs must be calculate first using cellcurrents
-        # Inputs
-        # cell 'model' can be 'Multi2T' or 'Tandem3T'
-        #'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
-        # Outputs
-        # - EYeff energy yield efficiency = EY/YearlyEnergy
-        # - EY energy yield of cell [kWh/m2/yr]
-
-        bot, top, _, type3T = cellmodeldesc(model, oper)  # ncells does not matter here
-
-        # calc EY, etc
-        for i in trange(len(self.inPower), leave=True, desc='single core'):
-            if type3T == "2T":  # Multi2T
-                for ijunc in range(model.njuncs):
-                    model.j[ijunc].set(Eg=self.Egs[ijunc], Jext=self.Jscs[i, ijunc], TC=self.TempCell.iloc[i])
-                mpp_dict = model.MPP()  # oper ignored for 2T
-                Pmax = mpp_dict["Pmp"]
-            elif type3T in ["s", "r"]:  # Tandem3T
-                model.top.set(Eg=self.Egs[0], Jext=self.Jscs[i, 0], TC=self.TempCell[i])
-                model.bot.set(Eg=self.Egs[1], Jext=self.Jscs[i, 1], TC=self.TempCell[i])
-                if oper == "MPP":
-                    iv3T = model.MPP()
-                elif oper == "CM":
-                    _, iv3T = model.CM()
-                elif oper[:2] == "VM":
-                    _, iv3T = model.VM(bot, top)
-                else:
-                    iv3T = pvc.iv3T.IV3T("bogus")
-                    iv3T.Ptot[0] = 0
-                Pmax = iv3T.Ptot[0]
-            else:
-                Pmax = 0.0
-
-            self.outPower[i] = Pmax * self.NTime[i] * 10000.0
-
-        EY = sum(self.outPower) * self.DayTime * 365.25 / 1000  # kWh/m2/yr
-        EYeff = EY / self.YearlyEnergy
-
-        return EY, EYeff
+    p = [-6.47214956e-04, 1.01632828e00]
+    return (p[0] * temperature + p[1]) * bandgap_25
 
 
+def si_sigma_shift(temperature: float, sigma_25: float) -> float:
+    """
+    Temperature dependence of sigma of a silicon cell.
+    See pvc.qe.EQE class for details about bandgap and sigma determination
+
+    Args:
+        temperature (float): target temperature
+        sigma_25: sigma at 25degC
+
+    Returns: sigma at target temperature
+    """
+    p = [0.00959188, 0.76558903]
+    return (p[0] * temperature + p[1]) * sigma_25
+
+
+def psc_eg_shift(temperature: float, bandgap_25: float) -> float:
+    """
+    Temperature dependence of bandgap of a metal halide perovskite.
+    Assumes a piecewise linear function.
+    See pvc.qe.EQE class for details about bandgap and sigma determination
+
+    Args:
+        temperature (float): target temperature
+        bandgap_25: bandgap at 25degC
+
+    Returns: bandgap at target temperature
+    """
+    t_split = 32
+    p = [2.59551019e-04, 9.91138163e-01]
+    res = np.zeros_like(temperature, dtype=np.float64)
+
+    t_filter = temperature > t_split
+    res[t_filter] = p[0] * temperature[t_filter] + p[1]
+    res[~t_filter] = p[0] * t_split + p[1]
+    res = res * bandgap_25
+    res = pd.Series(res, index=temperature.index)
+    return res
+
+
+def psc_sigma_shift(temperature: float, sigma_25: float) -> float:
+    """
+    Temperature dependence of sigma of a metal halide perovskite.
+    See pvc.qe.EQE class for details about bandgap and sigma determination
+
+    Args:
+        temperature (float): target temperature
+        sigma_25 (float): sigma at 25degC
+
+    Returns: sigma at target temperature
+    """
+    p = [0.00358866, 0.50074156]
+    return (p[0] * temperature + p[1]) * sigma_25
+
+
+def wavelength_to_photonenergy(wavelength: float):
+    """
+    Convert wavelength [nm] to photon energy [eV]
+
+    Args:
+        wavelength (float): wavelength in [nm]
+
+    Returns:
+        float: photon energy in [eV]
+    """
+    return constants.h * constants.c / (wavelength * 1e-9) / constants.e
+
+
+def photonenergy_to_wavelength(photonenergy):
+    return constants.h * constants.c / (photonenergy * 1e-9) / constants.e
+
+
+def _normalize(eqe: pd.DataFrame) -> pd.DataFrame:
+    eqe_min = np.nanmin(eqe)
+    eqe_max = np.nanmax(eqe)
+    return (eqe - eqe_min) / (eqe_max - eqe_min)
 
 
 class Meteo(object):
@@ -391,104 +226,99 @@ class Meteo(object):
     Meteorological environmental data and spectra
     """
 
-    def __init__(self, wavelength, spectra, ambient_temperature, wind, daytime):
+    def __init__(self, wavelength, spectra, ambient_temperature, wind, datetime):
 
-        self.temp = ambient_temperature  # [degC]
-        self.wind = wind  # [m/s]
-        self.daytime = daytime  # daytime vector
+        # replace nan is spctra with 0
+        spectra = spectra.fillna(0)
+        # drop any other nans
+        ffilter = (np.all(np.isfinite(spectra), axis=1)) & (np.isfinite(ambient_temperature)) & (np.isfinite(wind))
+        self.temp = ambient_temperature[ffilter]  # [degC]
+        self.wind = wind[ffilter]  # [m/s]
+        self.datetime = datetime[ffilter]  # daytime vector
 
         self.wavelength = wavelength
-        self.spectra = spectra  # transpose for integration with QE
+        self.spectra = spectra[ffilter]  # transpose for integration with QE
 
+        # calculate from spectral proxy data only
+        self.irradiance = pd.Series(trapezoid(y=self.spectra, x=self.wavelength), index=self.datetime)  # optical power of each spectrum
+        self.cell_temp = sandia_T(self.irradiance, self.wind, self.temp)
+        self.energy_in = trapezoid(y=self.irradiance, x=self.datetime.astype(np.int64)) / 1e9 / 3600 / 1000  # [kWh/m2/yr]
 
-        # standard data
-        pvcpath = os.path.dirname(os.path.dirname(__file__))
-        datapath = os.path.join(pvcpath, "data", "")  # Data files here
-        # datapath = os.path.abspath(os.path.relpath('../data/', start=__file__))
-        # datapath = pvcpath.replace('/pvcircuit','/data/')
-        ASTMfile = os.path.join(datapath, "ASTMG173.csv")
-        dfrefspec = pd.read_csv(ASTMfile, index_col=0, header=2)
+        self.average_photon_energy = None  # is calcluated when running calc_ape
 
-        self.ref_wvl = dfrefspec.index.to_numpy(dtype=np.float64, copy=True)
+    def calc_currents(self, eqe):
 
-         # calculate from spectral proxy data only
-        self.SpecPower = pd.Series(np.trapz(spectra, x=wavelength), index=spectra.index) # optical power of each spectrum
-        self.RefPower = np.trapz(pvc.qe.refspec, x=self.ref_wvl, axis=0)  # optical power of each reference spectrum
-        self.TempCell = sandia_T(self.SpecPower, self.wind, self.temp)
-        self.inPower = self.SpecPower  # * self.NTime  # spectra power*(fractional time)
-        self.outPower = None
-        # construct a results dataframe for better handling
-        self.models=[]
-        self.operation_modes=[]
-        self.tandem_types=[]
-        self.EnergyIn = np.trapz(self.SpecPower, self.daytime.values.astype(np.int64)) / 1e9 / 60  # kWh/m2/yr
+        eqe.add_spectra(self.wavelength, self.spectra.T)
 
-        self.average_photon_energy = None # is calcluated when running calc_ape
+        lam = eqe.wavelength.flatten()
+        spectra = eqe.spectra
 
-    def cellbandgaps(self, EQE, TC=25):
-        # subcell Egs for a given EQE class
-        self.Jdbs, self.Egs = EQE.Jdb(TC)  # Eg from EQE same at all temperatures
+        tandem_bandgaps, tandem_sigmas = eqe.calc_Eg_Rau()
+        tc_bandgap_25 = tandem_bandgaps[0]
+        tc_sigma_25 = tandem_sigmas[0]
+        bc_bandgap_25 = tandem_bandgaps[1]
+        bc_sigma_25 = tandem_sigmas[1]
 
-    def cellcurrents(self, EQE, STC=False):
-        # subcell currents and Egs and under self TMY for a given EQE class
+        tc_bandgaps = psc_eg_shift(self.cell_temp, tc_bandgap_25)
+        tc_sigmas = psc_sigma_shift(self.cell_temp, tc_sigma_25)
+        bc_bandgaps = si_eg_shift(self.cell_temp, bc_bandgap_25)
+        bc_sigmas = si_sigma_shift(self.cell_temp, bc_sigma_25)
 
-        if STC:
-            self.JscSTCs = EQE.Jint(pvc.qe.refspec) / 1000.0
-        else:
-            self.Jscs = EQE.Jint(self.spectra.T, xspec=self.wavelength) / 1000.0
+        tc_eqe = eqe.eqe[:, 0]
+        bc_eqe = eqe.eqe[:, 1]
 
-    def cellSTCeff(self, model, oper, iref=1):
-        # max power of a cell under a reference spectrum
-        # self.Jscs and self.Egs must be calculate first using cellcurrents
-        # Inputs
-        # cell 'model' can be 'Multi2T' or 'Tandem3T'
-        #'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
-        # iref = 0 -> space
-        # iref = 1 -> global
-        # iref = 2 -> direct
-        # Outputs
-        # - STCeff efficiency of cell under reference spectrum (space,global,direct)
+        vec_erfc = np.vectorize(erfc)
+        tc_trans = None
+        Ey = constants.h * constants.c / (lam * 1e-9) / constants.e  # [eV]
 
-        bot, top, ratio, type3T = cellmodeldesc(model, oper)  # ncells does not matter here
+        tc_lam_eqe_saturation_idx = np.argmax(tc_eqe * lam)
+        tc_eqe_saturation = tc_eqe[tc_lam_eqe_saturation_idx]
+        # using 25 degC EQE for saturation
+        # tc_eqe_saturation = tc_eqe[lam > photonenergy_to_wavelength(tc_bandgap_25 + 2 * tc_sigma_25)][0]
 
-        # calc reference spectra efficiency
-        if iref == 0:
-            Tref = 28.0  # space
-        else:
-            Tref = 25.0  # global and direct
+        bc_lam_eqe_saturation_idx = np.argmax(bc_eqe * lam)
+        bc_eqe_saturation = bc_eqe[bc_lam_eqe_saturation_idx]
+        # using 25 degC EQE for saturation
+        # bc_eqe_saturation = bc_eqe[lam > photonenergy_to_wavelength(bc_bandgap_25 + 2 * bc_sigma_25)][0]
 
-        if type3T == "2T":  # Multi2T
-            for ijunc in range(model.njuncs):
-                model.j[ijunc].set(TC=Tref)
-            mpp_dict = model.MPP()  # oper ignored for 2T
-            Pmax = mpp_dict["Pmp"] * 10.0
-            ratio = 0.0
-        elif type3T in ["s", "r"]:  # Tandem3T
-            model.top.set(TC=Tref)
-            model.bot.set(TC=Tref)
-            if oper == "MPP":
-                tempRz = model.Rz
-                model.set(Rz=0)
-                iv3T = model.MPP()
-                model.set(Rz=tempRz)
+        tc_bandgaps_arr = np.tile(tc_bandgaps, [len(Ey), 1])
+        tc_sigmas_arr = np.tile(tc_sigmas, [len(Ey), 1])
+        tc_erfc_arr = (tc_bandgaps_arr - Ey.reshape(-1, 1)) / (tc_sigmas_arr * np.sqrt(2))
+        tc_eqe_filter = np.tile(lam, [len(tc_bandgaps), 1]).T > photonenergy_to_wavelength(tc_bandgaps_arr + 2 * tc_sigmas_arr)
+        tc_eqe_new_arr = np.tile(tc_eqe, [len(tc_bandgaps), 1]).T
+        tc_abs_arr = vec_erfc(tc_erfc_arr) * 0.5 * tc_eqe_saturation
+        tc_eqe_new_arr = tc_eqe_new_arr * ~tc_eqe_filter + tc_abs_arr * tc_eqe_filter
 
-            elif oper == "CM":
-                ln, iv3T = model.CM()
-            elif oper[:2] == "VM":
-                ln, iv3T = model.VM(bot, top)
-            else:
-                print(oper + " not valid")
-                iv3T = pvc.iv3T.IV3T("bogus")
-                iv3T.Ptot[0] = 0
-            Pmax = iv3T.Ptot[0] * 10.0
-        else:
-            Pmax = 0.0
+        tc_trans = None
+        if tc_trans is None:
+            tc_trans = 1 - _normalize(tc_eqe_new_arr)
 
-        STCeff = Pmax * 1000.0 / self.RefPower[iref]
+        eqe_max_idx = np.argmax(tc_eqe_new_arr, axis=0)
+        filter_idx = (tc_eqe_new_arr < 0.01) & (tc_eqe_new_arr > eqe_max_idx)
+        tc_trans[filter_idx] = 1
+        # tc_trans[~tc_eqe_filter] = 0
 
-        return STCeff
+        bc_bandgaps_arr = np.tile(bc_bandgaps, [len(Ey), 1])
+        bc_sigmas_arr = np.tile(bc_sigmas, [len(Ey), 1])
+        bc_erfc_arr = (bc_bandgaps_arr - Ey.reshape(-1, 1)) / (bc_sigmas_arr * np.sqrt(2))
+        bc_eqe_filter = np.tile(lam, [len(bc_bandgaps), 1]).T > photonenergy_to_wavelength(bc_bandgaps_arr + 2 * bc_sigmas_arr)
+        bc_eqe_new_arr = np.tile(bc_eqe, [len(bc_bandgaps), 1]).T
+        bc_abs_arr = vec_erfc(bc_erfc_arr) * 0.5 * bc_eqe_saturation
+        bc_eqe_new_arr = bc_eqe_new_arr * ~bc_eqe_filter + bc_abs_arr * bc_eqe_filter
 
-    def cellEYeff(self, model, oper):
+        tc_jscs = np.trapz(y=tc_eqe_new_arr * spectra / wavelength_to_photonenergy(lam).reshape(-1, 1), x=lam.reshape(-1, 1), axis=0) / 10
+        bc_jscs = np.trapz(y=bc_eqe_new_arr * spectra / wavelength_to_photonenergy(lam).reshape(-1, 1), x=lam.reshape(-1, 1), axis=0) / 10
+
+        # replace negative currents with 0
+        tc_jscs[tc_jscs < 0] = 0
+        bc_jscs[bc_jscs < 0] = 0
+
+        self.Jscs = np.hstack([tc_jscs.reshape(-1, 1) / 1000, bc_jscs.reshape(-1, 1) / 1000])
+        self.Egs = np.hstack([tc_bandgaps.values.reshape(-1, 1), bc_bandgaps.values.reshape(-1, 1)])
+
+        return tc_jscs, bc_jscs
+
+    def run_ey(self, model, oper, multiprocessing=True):
         # max power of a cell under self TMY
         # self.Jscs and self.Egs must be calculate first using cellcurrents
         # Inputs
@@ -497,137 +327,51 @@ class Meteo(object):
         # Outputs
         # - EYeff energy yield efficiency = EY/YearlyEnergy
         # - EY energy yield of cell [kWh/m2/yr]
-
-        bot, top, ratio, type3T = cellmodeldesc(model, oper)  # ncells does not matter here
-
-        # calc EY, etc
-        outPower = np.empty((self.inPower.shape[0],1))  # initialize
-
-        for i in trange(len(outPower)):
-
-            if type3T == "2T":  # Multi2T
-                for ijunc in range(model.njuncs):
-                    model.j[ijunc].set(Eg=self.Egs[i, ijunc], Jext=self.Jscs[i, ijunc], TC=self.TempCell.iloc[i])
-                mpp_dict = model.MPP()  # oper ignored for 2T
-                Pmax = mpp_dict["Pmp"]
-            elif type3T in ["s", "r"]:  # Tandem3T
-                model.top.set(Eg=self.Egs[i, 0], Jext=self.Jscs[i, 0], TC=self.TempCell.iloc[i])
-                model.bot.set(Eg=self.Egs[i, 1], Jext=self.Jscs[i, 1], TC=self.TempCell.iloc[i])
-                if oper == "MPP":
-                    tempRz = model.Rz
-                    model.set(Rz=0)
-                    iv3T = model.MPP()
-                    model.set(Rz=tempRz)
-                elif oper == "CM":
-                    ln, iv3T = model.CM()
-                elif oper[:2] == "VM":
-                    ln, iv3T = model.VM(bot, top)
-                else:
-                    iv3T = pvc.iv3T.IV3T("bogus")
-                    iv3T.Ptot[0] = 0
-                Pmax = iv3T.Ptot[0]
-            else:
-                Pmax = 0.0
-
-            outPower[i] = Pmax * 10000
-
-        if self.outPower is None:
-            self.outPower = outPower
-        elif self.outPower.shape[0] == outPower.shape[0]:
-            self.outPower = np.concatenate([self.outPower, outPower], axis=1)
-
-        self.models.append(model)
-        self.operation_modes.append(oper)
-        self.tandem_types.append(type3T)
-
-        # EnergyOut = np.trapz(self.outPower, self.daytime.values.astype(int)) / 1e9 / 60  # kWh/m2/yr
-        EnergyOut = np.trapz(outPower, self.daytime.values.astype(np.int64), axis=0) / 1e9 / 60  # kWh/m2/yr
-        EYeff = EnergyOut / self.EnergyIn
-
-        return EnergyOut, EYeff
-
-    # def cellEYeffMP(self, model, oper):
-    #     # max power of a cell under self TMY
-    #     # self.Jscs and self.Egs must be calculate first using cellcurrents
-    #     # Inputs
-    #     # cell 'model' can be 'Multi2T' or 'Tandem3T'
-    #     #'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
-    #     # Outputs
-    #     # - EYeff energy yield efficiency = EY/YearlyEnergy
-    #     # - EY energy yield of cell [kWh/m2/yr]
-
-    #     bot, top, ratio, type3T = cellmodeldesc(model, oper)  # ncells does not matter here
-
-    #     # calc EY, etc
-    #     outPowerMP = np.empty_like(self.inPower)  # initialize
-
-    #     cpu_count = mp.cpu_count()
-    #     print(f"running multiprocess with {cpu_count} pools")
-    #     with tqdm(total=len(self.inPower), leave=True, desc = f"Multi processing {oper}") as pbar:
-
-    #         dev_list = [copy.deepcopy(model) for _ in range(len(self.Jscs))]
-    #         with mp.Pool(cpu_count) as pool:
-    #             def callback(*args):
-    #                 # callback
-    #                 pbar.update()
-    #                 return
-
-    #             results = list(
-    #                 pool.apply_async(_calc_yield_async, args=(i, bot, top, type3T, self.Jscs, self.Egs, self.TempCell, dev_list, oper), callback=callback)
-    #                 for i, _ in enumerate(self.inPower)
-    #             )
-    #             results = [r.get() for r in results]
-
-    #     self.outPowerMP = results
-
-    #     EnergyOut = np.trapz(self.outPowerMP, self.daytime.values.astype(np.int64)) / 1e9 / 60  # kWh/m2/yr
-    #     EYeff = EnergyOut / self.EnergyIn
-    #     return EnergyOut, EYeff
-
-    def cellEYeffMP(self, model, oper):
-        # max power of a cell under self TMY
-        # self.Jscs and self.Egs must be calculate first using cellcurrents
-        # Inputs
-        # cell 'model' can be 'Multi2T' or 'Tandem3T'
-        #'oper' describes operation method unconstrained 'MPP', series-connected 'CM', parallel-configurations 'VM'
-        # Outputs
-        # - EYeff energy yield efficiency = EY/YearlyEnergy
-        # - EY energy yield of cell [kWh/m2/yr]
-
-        bot, top, ratio, type3T = cellmodeldesc(model, oper)  # ncells does not matter here
-
-        # calc EY, etc
-        outPowerMP = np.empty_like(self.inPower)  # initialize
 
         # Split data into chunks for workers
         max_chunk_size = 200
         cpu_count = mp.cpu_count()
         chunk_ids = np.arange(len(self.Jscs))
-        chunk_size =  min(len(chunk_ids) // cpu_count, max_chunk_size)
+        chunk_size = min(len(chunk_ids) // cpu_count + 1, max_chunk_size)
 
-        chunks = [chunk_ids[i:i + chunk_size] for i in range(0, len(chunk_ids), chunk_size)]
+        chunks = [chunk_ids[i : i + chunk_size] for i in range(0, len(chunk_ids), chunk_size)]
+        dev_list = np.array([copy.deepcopy(model) for _ in range(len(self.Jscs))])
 
-        print(f"running multiprocess with {cpu_count} pools")
-        with tqdm(total=len(self.inPower), leave=True, desc = f"Multi processing {oper}") as pbar:
+        with tqdm(total=len(self.datetime), leave=True, desc=f"Running {model.name} in mode {oper}") as pbar:
 
-            dev_list = np.array([copy.deepcopy(model) for _ in range(len(self.Jscs))])
-            with mp.Pool(cpu_count) as pool:
-                def callback(*args):
-                    # callback
-                    pbar.update(len(args[0]))
-                    return
+            def update_tqdm(*args):
+                # callback
+                pbar.update(len(args[0]))
+                return
 
-                # Assign tasks to workers
-                jobs = [pool.apply_async(_calc_yield_async, args=(bot, top, type3T, self.Jscs[chunk], self.Egs[chunk], self.TempCell.iloc[chunk], dev_list[chunk], oper), callback=callback) for chunk in chunks]
-                # Get results from workers
-                results = [item for job in jobs for item in job.get()]
+            if multiprocessing:
+                print(f"Running with {cpu_count} parallel processes")
+
+                with mp.Pool(cpu_count) as pool:
+
+                    # Assign tasks to workers
+                    jobs = [pool.apply_async(_calc_yield_async, args=(self.Jscs[chunk], self.Egs[chunk], self.cell_temp.iloc[chunk], dev_list[chunk], oper), callback=update_tqdm) for chunk in chunks]
+                    # Get results from workers
+                    results = [item for job in jobs for item in job.get()]
+
+            else:
+                print("Running sequentially without multiprocessing")
+
+                results = []
+                for chunk in chunks:
+                    chunk_result = _calc_yield_async(self.Jscs[chunk], self.Egs[chunk], self.cell_temp.iloc[chunk], dev_list[chunk], oper)
+                    results.extend(chunk_result)
+                    pbar.update(len(chunk))
 
         self.outPowerMP = results
 
-        EnergyOut = np.trapz(self.outPowerMP, self.daytime.values.astype(np.int64)) / 1e9 / 60  # kWh/m2/yr
-        EYeff = EnergyOut / self.EnergyIn
-        return EnergyOut, EYeff
+        EnergyOut = trapezoid(self.outPowerMP, self.datetime.values.astype(np.int64)) / 1e9  # [Ws/cm2/yr]
+        # convert to [kWh/m2/yr]
+        EnergyOut = EnergyOut / 3.6e3 / 1e3 * 1e4
 
+        # calculate energy harvesting efficieny
+        EYeff = EnergyOut / self.energy_in
+        return EnergyOut, EYeff
 
     def calc_ape(self):
         """
@@ -635,10 +379,9 @@ class Meteo(object):
         """
 
         phi = self.spectra * (self.wavelength * 1e-9) / constants.h / constants.c
-        self.average_photon_energy = np.trapz(x=self.wavelength, y=self.spectra.values) / constants.e / np.trapz(x=self.wavelength, y=phi.values)
+        self.average_photon_energy = trapezoid(x=self.wavelength, y=self.spectra.values) / constants.e / trapezoid(x=self.wavelength, y=phi.values)
 
-
-    def filter_ape(self, min_ape:float = 0, max_ape:float = 10):
+    def filter_ape(self, min_ape: float = 0, max_ape: float = 10):
         """
         filter the average photon energy (APE)
 
@@ -652,18 +395,16 @@ class Meteo(object):
         self_copy = copy.deepcopy(self)
         ape_mask = (self_copy.average_photon_energy > min_ape) & (self_copy.average_photon_energy < max_ape)
 
-        self_copy.daytime = self_copy.daytime[ape_mask]
+        self_copy.datetime = self_copy.datetime[ape_mask]
         self_copy.average_photon_energy = self_copy.average_photon_energy[ape_mask]
         self_copy.spectra = self_copy.spectra[ape_mask]
-        self_copy.SpecPower = self_copy.SpecPower[ape_mask]
-        self_copy.TempCell = self_copy.TempCell[ape_mask]
+        self_copy.irradiance = self_copy.irradiance[ape_mask]
+        self_copy.cell_temp = self_copy.cell_temp[ape_mask]
 
-        assert len(self_copy.spectra) == len(self_copy.SpecPower) == len(self_copy.TempCell) == len(self_copy.average_photon_energy)
+        assert len(self_copy.spectra) == len(self_copy.irradiance) == len(self_copy.cell_temp) == len(self_copy.average_photon_energy)
         return self_copy
 
-
-
-    def filter_spectra(self, min_spectra:float = 0, max_spectra:float = 10):
+    def filter_spectra(self, min_spectra: float = 0, max_spectra: float = 10):
         """
         spectral data
 
@@ -672,29 +413,24 @@ class Meteo(object):
             max_spectra (float, optional): max value of the spectra. Defaults to 10.
         """
 
-
         self_copy = copy.deepcopy(self)
         spectra_mask = (self_copy.spectra >= min_spectra).all(axis=1) & (self_copy.spectra < max_spectra).all(axis=1)
-        self_copy.daytime = self_copy.daytime[spectra_mask]
+        self_copy.datetime = self_copy.datetime[spectra_mask]
         self_copy.average_photon_energy = self_copy.average_photon_energy[spectra_mask]
         self_copy.spectra = self_copy.spectra[spectra_mask]
-        self_copy.SpecPower = self_copy.SpecPower[spectra_mask]
-        self_copy.TempCell = self_copy.TempCell[spectra_mask]
+        self_copy.irradiance = self_copy.irradiance[spectra_mask]
+        self_copy.cell_temp = self_copy.cell_temp[spectra_mask]
 
-        assert len(self.spectra) == len(self.SpecPower) == len(self.TempCell) == len(self.average_photon_energy)
+        assert len(self.spectra) == len(self.irradiance) == len(self.cell_temp) == len(self.average_photon_energy)
         return self_copy
 
-
-
-
-    def filter_custom(self, filter_array:bool):
+    def filter_custom(self, filter_array: bool):
         """
         Applys a custom filter ot the meteo data
         Args:
             filter_array (bool): Filter array to apply to the data
         """
         # assert len(filter_array) == len(self.spectra) == len(self.SpecPower) == len(self.TempCell)
-
 
         self_copy = copy.deepcopy(self)
 
@@ -704,16 +440,15 @@ class Meteo(object):
         # self_copy.TempCell = self_copy.TempCell[filter_array]
 
         for attr_name in vars(self):
-            if hasattr(getattr(self_copy, attr_name), '__len__'):
+            if hasattr(getattr(self_copy, attr_name), "__len__"):
                 attr = getattr(self_copy, attr_name)
                 if len(attr) == len(filter_array):
-                    setattr(self_copy,attr_name,attr[filter_array])
-
+                    setattr(self_copy, attr_name, attr[filter_array])
 
         # assert len(self.spectra) == len(self.SpecPower) == len(self.TempCell) == len(self.average_photon_energy)
         return self_copy
 
-    def reindex(self, index:bool, method="nearest", tolerance=pd.Timedelta(seconds=30)):
+    def reindex(self, index: bool, method="nearest", tolerance=pd.Timedelta(seconds=30)):
         """
         Reindex according to indexer
         Args:
@@ -725,7 +460,6 @@ class Meteo(object):
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
             if isinstance(attr, pd.DataFrame) or isinstance(attr, pd.Series):
-                setattr(self_copy,attr_name,attr.reindex(index=index, method=method, tolerance=tolerance))
-
+                setattr(self_copy, attr_name, attr.reindex(index=index, method=method, tolerance=tolerance))
 
         return self_copy

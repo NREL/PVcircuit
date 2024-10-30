@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-This is the PVcircuit Package. 
+This is the PVcircuit Package.
 Model tandem and multijunction solar cells
 Written by John Geisz at the National Renewable Energy Laboratory
 December, 2021
 Based on publications:
-    J. F. Geisz, et al., IEEE Journal of Photovoltaics 5, p. 1827 (2015). 
+    J. F. Geisz, et al., IEEE Journal of Photovoltaics 5, p. 1827 (2015).
     http://dx.doi.org/10.1109/JPHOTOV.2015.2478072
 
-    J. F. Geisz, et al., Cell Reports Physical Science 2, p. 100677 (2021). 
+    J. F. Geisz, et al., Cell Reports Physical Science 2, p. 100677 (2021).
     https://doi.org/10.1016/j.xcrp.2021.100677
 
 
@@ -21,15 +21,17 @@ This module contains the classes:
     pvc.EQE()        # properties of tandem external quantum efficiency measurements
 """
 
-import os
 import importlib
+import os
+
+import pvcircuit.EY as EY
+import pvcircuit.iv3T as iv3T
+
 #
 import pvcircuit.junction as junction
 import pvcircuit.multi2T as multi2T
-import pvcircuit.iv3T as iv3T
-import pvcircuit.tandem3T as tandem3T
 import pvcircuit.qe as qe
-import pvcircuit.EY as EY
+import pvcircuit.tandem3T as tandem3T
 
 # expose constructors to package's top level
 Junction = junction.Junction
@@ -41,8 +43,6 @@ Multi2T = multi2T.Multi2T
 IV3T = iv3T.IV3T
 Tandem3T = tandem3T.Tandem3T
 
-pvcpath = qe.pvcpath
-datapath = qe.datapath
 JdbFromEg = qe.JdbFromEg
 EgFromJdb = qe.EgFromJdb
 JdbMD = qe.JdbMD
@@ -50,10 +50,7 @@ JintMD = qe.JintMD
 PintMD = qe.PintMD
 EQE = qe.EQE
 
-TMY = EY.TMY
-
-#
-VERSION = 0.04
+VERSION = 0.05
 
 
 
