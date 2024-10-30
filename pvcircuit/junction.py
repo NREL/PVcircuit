@@ -19,13 +19,13 @@ import scipy.constants as con  # physical constants
 from parse import parse
 from scipy.optimize import brentq  # root finder
 
+from pvcircuit.conversions import DB_PREFIX, HC_E, K_Q, TK, Vth
+
 # constants
-k_q = con.k / con.e
-DB_PREFIX = 2.0 * np.pi * con.e * (con.k / con.h) ** 3 / (con.c) ** 2 / 1.0e4  # about 1.0133e-8 for Jdb[A/cm2]
-nan = np.nan
 
 # Junction defaults
 Eg_DEFAULT = 1.1  # [eV]
+SIGMA_DEFAULT = 0  # [eV]
 TC_REF = 25.0  # [C]
 AREA_DEFAULT = 1.0  # [cm2] note: if A=1, then I->J
 BETA_DEFAUlT = 15.0  # unitless
@@ -38,23 +38,6 @@ EPSREL = 1e-15
 MAXITER = 1000
 
 GITpath = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-
-
-# @lru_cache(maxsize=100)
-def TK(TC: float) -> float:
-    return TC + con.zero_Celsius
-
-
-# convert degrees celcius to kelvin
-
-
-# @lru_cache(maxsize=100)
-def Vth(TC: float) -> float:
-    return k_q * TK(TC)
-
-
-# Thermal voltage in volts = kT/q
-
 
 @lru_cache(maxsize=100)
 def Jdb(TC: float, Eg: float, sigma: float = 0):
@@ -114,6 +97,7 @@ class Junction(object):
         self,
         name: str = "junc",
         Eg: float = Eg_DEFAULT,
+        sigma: float = SIGMA_DEFAULT,
         TC: float = TC_REF,
         Gsh: float = 0.0,
         Rser: float = 0.0,
@@ -137,6 +121,7 @@ class Junction(object):
         # user inputs
         self.name = name  # remember my name
         self.Eg = np.float64(Eg)  #: [eV] junction band gap
+        self.sigma = np.float64(sigma)  #: [eV] junction band gap sigma
         self.TC = np.float64(TC)  #: [C] junction temperature
         self.Jext = np.float64(Jext)  #: [A/cm2] photocurrent density
         self.Gsh = np.float64(Gsh)  #: [ohm] shunt conductance=1/Rsh
@@ -363,7 +348,7 @@ class Junction(object):
     @property
     def Jdb(self) -> float:
         # detailed balance saturation current
-        return Jdb(self.TC, self.Eg)
+        return Jdb(self.TC, self.Eg, self.sigma)
 
     @property
     def J0(self) -> float:

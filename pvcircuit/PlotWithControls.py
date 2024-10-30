@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-This is the PVcircuit Package. 
+This is the PVcircuit Package.
     pvcircuit.EY     use Ripalda's Tandem proxy spectra for energy yield
 """
 
@@ -32,7 +32,6 @@ class PlotsWithControls:
         self.VdataMPP = None
         self.IdataMPP = None
         self.class_to_plot = class_to_plot
-        
 
         if isinstance(class_to_plot, Junction):
             self.controls_junction(class_to_plot)
@@ -57,15 +56,9 @@ class PlotsWithControls:
         cell_layout = widgets.Layout(display="inline_flex", flex_flow="row", justify_content="flex-end", width="300px")
         # controls
         in_name = widgets.Text(value=class_to_plot.name, description="name", layout=cell_layout, continuous_update=False)
-        in_Eg = widgets.FloatSlider(
-            value=class_to_plot.Eg, min=0.1, max=3.0, step=0.01, description="Eg", layout=cell_layout, readout_format=".2f"
-        )
-        in_TC = widgets.FloatSlider(
-            value=class_to_plot.TC, min=-40, max=200.0, step=2, description="TC", layout=cell_layout, readout_format=".1f"
-        )
-        in_Jext = widgets.FloatSlider(
-            value=class_to_plot.Jext, min=0.0, max=0.080, step=0.001, description="Jext", layout=cell_layout, readout_format=".4f"
-        )
+        in_Eg = widgets.FloatSlider(value=class_to_plot.Eg, min=0.1, max=3.0, step=0.01, description="Eg", layout=cell_layout, readout_format=".2f")
+        in_TC = widgets.FloatSlider(value=class_to_plot.TC, min=-40, max=200.0, step=2, description="TC", layout=cell_layout, readout_format=".1f")
+        in_Jext = widgets.FloatSlider(value=class_to_plot.Jext, min=0.0, max=0.080, step=0.001, description="Jext", layout=cell_layout, readout_format=".4f")
         in_JLC = widgets.FloatSlider(
             value=class_to_plot.JLC,
             min=0.0,
@@ -76,15 +69,9 @@ class PlotsWithControls:
             readout_format=".4f",
             disabled=True,
         )
-        in_Gsh = widgets.FloatLogSlider(
-            value=class_to_plot.Gsh, base=10, min=-12, max=3, step=0.01, description="Gsh", layout=cell_layout, readout_format=".2e"
-        )
-        in_Rser = widgets.FloatLogSlider(
-            value=class_to_plot.Rser, base=10, min=-7, max=3, step=0.01, description="Rser", layout=cell_layout, readout_format=".2e"
-        )
-        in_lightarea = widgets.FloatLogSlider(
-            value=class_to_plot.lightarea, base=10, min=-6, max=3.0, step=0.1, description="lightarea", layout=cell_layout
-        )
+        in_Gsh = widgets.FloatLogSlider(value=class_to_plot.Gsh, base=10, min=-12, max=3, step=0.01, description="Gsh", layout=cell_layout, readout_format=".2e")
+        in_Rser = widgets.FloatLogSlider(value=class_to_plot.Rser, base=10, min=-7, max=3, step=0.01, description="Rser", layout=cell_layout, readout_format=".2e")
+        in_lightarea = widgets.FloatLogSlider(value=class_to_plot.lightarea, base=10, min=-6, max=3.0, step=0.1, description="lightarea", layout=cell_layout)
         in_totalarea = widgets.FloatSlider(
             value=class_to_plot.totalarea,
             min=class_to_plot.lightarea,
@@ -93,12 +80,8 @@ class PlotsWithControls:
             description="totalarea",
             layout=cell_layout,
         )
-        in_beta = widgets.FloatSlider(
-            value=class_to_plot.beta, min=0.0, max=50.0, step=0.1, description="beta", layout=cell_layout, readout_format=".2e"
-        )
-        in_gamma = widgets.FloatSlider(
-            value=class_to_plot.gamma, min=0.0, max=3.0, step=0.1, description="gamma", layout=cell_layout, readout_format=".2e"
-        )
+        in_beta = widgets.FloatSlider(value=class_to_plot.beta, min=0.0, max=50.0, step=0.1, description="beta", layout=cell_layout, readout_format=".2e")
+        in_gamma = widgets.FloatSlider(value=class_to_plot.gamma, min=0.0, max=3.0, step=0.1, description="gamma", layout=cell_layout, readout_format=".2e")
         in_pn = widgets.IntSlider(value=class_to_plot.pn, min=-1, max=1, step=1, description="pn", layout=cell_layout)
 
         # linkages
@@ -138,11 +121,7 @@ class PlotsWithControls:
         in_ratio = []  # empty list of Jratio controls
         diode_dict = {}
         for i in range(len(class_to_plot.n)):
-            in_n.append(
-                widgets.FloatLogSlider(
-                    value=class_to_plot.n[i], base=10, min=-1, max=1, step=0.001, description="n[" + str(i) + "]", layout=cell_layout
-                )
-            )
+            in_n.append(widgets.FloatLogSlider(value=class_to_plot.n[i], base=10, min=-1, max=1, step=0.001, description="n[" + str(i) + "]", layout=cell_layout))
             in_ratio.append(
                 widgets.FloatLogSlider(
                     value=class_to_plot.J0ratio[i],
@@ -182,11 +161,7 @@ class PlotsWithControls:
                         )
                     )
                 else:
-                    in_rbb.append(
-                        widgets.FloatLogSlider(
-                            value=class_to_plot.RBB_dict[key], base=10, min=-10, max=5, step=0.1, description=key, layout=cell_layout
-                        )
-                    )
+                    in_rbb.append(widgets.FloatLogSlider(value=class_to_plot.RBB_dict[key], base=10, min=-10, max=5, step=0.1, description=key, layout=cell_layout))
                 cntrls.append(in_rbb[i])
 
         for cntrl in cntrls:
@@ -199,9 +174,7 @@ class PlotsWithControls:
         cntrls.append(iout)
 
         # user interface
-        box_layout = widgets.Layout(
-            display="flex", flex_flow="column", align_items="center", border="1px solid black", width="320px", height="350px"
-        )
+        box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", border="1px solid black", width="320px", height="350px")
 
         ui = widgets.VBox([in_tit] + cntrls, layout=box_layout)
         # self.ui = ui  # make it an attribute
@@ -353,9 +326,7 @@ class PlotsWithControls:
                 with VoutBox:
                     print(outstr.replace("fit", "data"))
             else:
-                outstr = fmtstr.format(
-                    fitsp.Vzt[0], fitsp.Vrz[0], fitsp.Vtr[0], fitsp.Iro[1] * fscale, fitsp.Izo[1] * fscale, fitsp.Ito[1] * fscale
-                )
+                outstr = fmtstr.format(fitsp.Vzt[0], fitsp.Vrz[0], fitsp.Vtr[0], fitsp.Iro[1] * fscale, fitsp.Izo[1] * fscale, fitsp.Ito[1] * fscale)
                 with VoutBox:
                     print(outstr.replace("fit", "data"))
 
@@ -469,18 +440,12 @@ class PlotsWithControls:
                 Rax.get_figure().savefig(os.path.join(outpath, "Rax.png"))
                 with VoutBox:
                     print(
-                        "points{0:>6.2f}; P(I){1:>6.2f}; P(V){2:>6.2f}; dark{3:>6.2f} s".format(
-                            (tmp - ts), (tI - tmp), (tV - tI), (tD - tV)
-                        ),
+                        "points{0:>6.2f}; P(I){1:>6.2f}; P(V){2:>6.2f}; dark{3:>6.2f} s".format((tmp - ts), (tI - tmp), (tV - tI), (tD - tV)),
                         "saved: " + outpath,
                     )
             else:
                 with VoutBox:
-                    print(
-                        "points{0:>6.2f}; P(I){1:>6.2f}; P(V){2:>6.2f}; dark{3:>6.2f} s".format(
-                            (tmp - ts), (tI - tmp), (tV - tI), (tD - tV)
-                        )
-                    )
+                    print("points{0:>6.2f}; P(I){1:>6.2f}; P(V){2:>6.2f}; dark{3:>6.2f} s".format((tmp - ts), (tI - tmp), (tV - tI), (tD - tV)))
 
         # Tandem 3T controls
         in_tit = widgets.Label(value="Tandem3T: ", description="title")
@@ -782,7 +747,7 @@ class PlotsWithControls:
                     # with self.debugout: print(linelabel)
                     for i in range(qe_class.njuncs):
                         if linelabel == qe_class.sjuncs[i]:
-                            line.set_data(qe_class.xEQE, qe_class.corrEQE[:, i])  # replot
+                            line.set_data(qe_class.wavelength, qe_class.corrEQE[:, i])  # replot
 
                 rlines = rax.get_lines()
                 for line in rlines:
@@ -801,7 +766,7 @@ class PlotsWithControls:
                             rax.fill_between(xspec, Pspec, step="mid", alpha=0.2, color="grey", label="fill")
                             line.set(label=specname)  # relabel spectrum
 
-            Jscs = qe_class.Jint(Pspec, xspec)
+            Jscs = pvc.qe.JintMD(qe_class.corrEQE, qe_class.wavelength.flatten(), Pspec, xspec)
             Jdbs, Egs = qe_class.Jdb(25)
             OP = pvc.qe.PintMD(Pspec, xspec)
 
@@ -925,7 +890,7 @@ class PlotsWithControls:
         # in_2Tbut.click() #fill in MPP values
 
         # return entire user interface, dark and light graph axes for tweaking
-        # return ui, ax, rax
+        return ui, ax, rax
 
     def controls_2T(self, class_to_plot):
         """
@@ -1053,14 +1018,10 @@ class PlotsWithControls:
 
                 if False:
                     Jext_list = class_to_plot.proplist("Jext")  # remember list external photocurrents
-                    snote = "T = {0:.1f} C, Rs2T = {1:g} Ω cm2, A = {2:g} cm2".format(
-                        class_to_plot.TC, class_to_plot.Rs2T, class_to_plot.lightarea
-                    )
+                    snote = "T = {0:.1f} C, Rs2T = {1:g} Ω cm2, A = {2:g} cm2".format(class_to_plot.TC, class_to_plot.Rs2T, class_to_plot.lightarea)
                     snote += "\nEg = " + str(Eg_list) + " eV"
                     snote += "\nJext = " + str(Jext_list * 1000) + " mA/cm2"
-                    snote += "\nVoc = {0:.3f} V, Isc = {1:.2f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW".format(
-                        Voc, MPP["Isc"] * 1000, MPP["FF"] * 100, MPP["Pmp"] * 1000
-                    )
+                    snote += "\nVoc = {0:.3f} V, Isc = {1:.2f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW".format(Voc, MPP["Isc"] * 1000, MPP["FF"] * 100, MPP["Pmp"] * 1000)
                     kids = lax.get_children()
                     for kid in kids:
                         if kid.get_label() == "mpptext":
@@ -1081,7 +1042,7 @@ class PlotsWithControls:
                 dax.get_figure().savefig(os.path.join(outpath, "dax.png"))
                 lax.get_figure().savefig(os.path.join(outpath, "lax.png"))
 
-                #TODO check for dimensions - export currently fails
+                # TODO check for dimensions - export currently fails
                 # assemble data into 2D arrays then dataframes for saving
                 # npdark = np.column_stack((Idark, Vdark, Vdarkmid))
                 # dfdark = pd.DataFrame(data=npdark, index=None, columns=["Idark", "Vdark", "Vdarkmid"])
@@ -1150,9 +1111,7 @@ class PlotsWithControls:
         # tandem3T controls
         in_tit = widgets.Label(value="Multi2T: ", description="title")
         in_name = widgets.Text(value=class_to_plot.name, description="name", layout=tand_layout, continuous_update=False)
-        in_Rs2T = widgets.FloatLogSlider(
-            value=class_to_plot.Rs2T, base=10, min=-6, max=3, step=0.01, description="Rs2T", layout=tand_layout, readout_format=".2e"
-        )
+        in_Rs2T = widgets.FloatLogSlider(value=class_to_plot.Rs2T, base=10, min=-6, max=3, step=0.01, description="Rs2T", layout=tand_layout, readout_format=".2e")
         in_2Tbut = widgets.Button(description="Recalc", button_style="success", tooltip="slow calculations")
         in_savefig = widgets.Button(description="savefig", button_style="success", tooltip="save figures")
         tand_dict = {"name": in_name, "Rs2T": in_Rs2T}
@@ -1341,15 +1300,11 @@ class PlotsWithControls:
             if class_to_plot.njuncs > 1:
                 for junc in range(class_to_plot.njuncs):  # plot Vdiode of each junction
                     dlns = lax.plot(Vdarkmid[:, junc], Idark * scale, marker="", ls="--", label="djunction" + str(junc))
-                    lax.plot(
-                        Vlightmid[:, junc], Ilight * scale, marker="", ls="-", c=dlns[0].get_color(), label="ljunction" + str(junc)
-                    )
+                    lax.plot(Vlightmid[:, junc], Ilight * scale, marker="", ls="-", c=dlns[0].get_color(), label="ljunction" + str(junc))
 
             lax.plot(Vdark, Idark * scale, lw=2, ls="--", c="black", label="dark")  # dark IV curve
             lax.plot(Vlight, Ilight * scale, lw=2, c="black", label="light")  # IV curve
-            lax.plot(
-                class_to_plot.Vpoints, class_to_plot.Ipoints * scale, marker="x", ls="", ms=12, c="black", label="points"
-            )  # special points
+            lax.plot(class_to_plot.Vpoints, class_to_plot.Ipoints * scale, marker="x", ls="", ms=12, c="black", label="points")  # special points
             if pplot:  # power curve
                 laxr = lax.twinx()
                 laxr.plot(Vlight, Plight * scale, ls="--", c="cyan", zorder=0, label="power")
@@ -1365,14 +1320,10 @@ class PlotsWithControls:
 
             if False:
                 # annotate
-                snote = "T = {0:.1f} C, Rs2T = {1:g} Ω cm2, A = {2:g} cm2".format(
-                    class_to_plot.TC, class_to_plot.Rs2T, class_to_plot.lightarea
-                )
+                snote = "T = {0:.1f} C, Rs2T = {1:g} Ω cm2, A = {2:g} cm2".format(class_to_plot.TC, class_to_plot.Rs2T, class_to_plot.lightarea)
                 snote += "\nEg = " + str(Eg_list) + " eV"
                 snote += "\nJext = " + str(Jext_list * 1000) + " mA/cm2"
-                snote += "\nVoc = {0:.3f} V, Isc = {1:.2f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW".format(
-                    Voc, MPP["Isc"] * 1000, MPP["FF"] * 100, MPP["Pmp"] * 1000
-                )
+                snote += "\nVoc = {0:.3f} V, Isc = {1:.2f} mA/cm2\nFF = {2:.1f}%, Pmp = {3:.1f} mW".format(Voc, MPP["Isc"] * 1000, MPP["FF"] * 100, MPP["Pmp"] * 1000)
 
                 # lax.text(Vmin+0.1,Imax/2,snote,zorder=5,bbox=dict(facecolor='white'))
                 lax.text(
@@ -1386,8 +1337,7 @@ class PlotsWithControls:
                 )
             return lfig, lax
 
-
-    def update_junction(self,junction):
+    def update_junction(self, junction):
         # update Junction self.ui controls
         if self.ui:  # junction user interface has been created
             if junction.RBB_dict:
@@ -1428,7 +1378,7 @@ class PlotsWithControls:
                         with self.debugout:
                             print("Jupdate: " + desc, attrval)
                         cntrl.value = attrval
-    
+
     def update_Multi2T(self):
         # update Multi2T self.ui controls with manually entered values
 

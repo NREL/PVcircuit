@@ -215,7 +215,7 @@ class Multi2T(object):
             elif key in ["Rs2T"]:
                 self.__dict__[key] = np.float64(value)
             # raise error if the key is not in the class attributes
-            elif not key in list(self.__dict__.keys()):
+            elif key not in list(self.__dict__.keys()):
                 raise ValueError(f"invalid class attribute {key}")
 
     def V2T(self, I: float) -> float:

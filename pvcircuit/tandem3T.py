@@ -115,7 +115,7 @@ class Tandem3T(object):
                         jikwargs[key] = value
                 # with self.debugout:
                 #     print("T2J[" + str(i) + "]: ", jikwargs)
-                junc.set(**jikwargs)
+                getattr(self, junc).set(**jikwargs)
 
         # remaining Multi2T kwargs
         for key, value in kwargs.items():
@@ -536,12 +536,18 @@ class Tandem3T(object):
         ind = []
         for i, Ptot in enumerate(lnout.Ptot.flat):
             if math.isfinite(Ptot):
-                if Ptot / lnout.area < -0.0:
+                if Ptot / lnout.area < 0.0 or np.isnan(Ptot / lnout.area):
                     ind.append(i)  # negative
             else:  # not finite
                 ind.append(i)
         lnout.delete(ind)  # delete extraneous points from lnout
-        MPP = lnout.MPP(name)  # single MPP point in IV3T space
+        if lnout.shape[0] > 0:
+            MPP = lnout.MPP(name)  # single MPP point in IV3T space
+        else:
+            lnout = IV3T(name="bogus", meastype=meastype, shape=1, area=self.lightarea)
+            lnout.Ptot[0] = 0
+            MPP = lnout.MPP(name)
+            return lnout, MPP
 
         # TODO needs externalization in PlottingWithControls
         # plot if possible
@@ -596,7 +602,7 @@ class Tandem3T(object):
         ind = []
         for i, Ptot in enumerate(lnout.Ptot.flat):
             if math.isfinite(Ptot):
-                if Ptot / lnout.area < -0.00:
+                if Ptot / lnout.area < 0.0 or np.isnan(Ptot / lnout.area):
                     ind.append(i)  # negative
             else:  # not finite
                 ind.append(i)
@@ -604,7 +610,10 @@ class Tandem3T(object):
         if lnout.shape[0] > 0:
             MPP = lnout.MPP(name)  # single MPP point in IV3T space
         else:
-            return lnout, IV3T(name="bogus", meastype=meastype, shape=1, area=self.lightarea)
+            lnout = IV3T(name="bogus", meastype=meastype, shape=1, area=self.lightarea)
+            lnout.Ptot[0] = 0
+            MPP = lnout.MPP(name)
+            return lnout, MPP
 
         # TODO needs externalization in PlottingWithControls
         # plot if possible

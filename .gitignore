@@ -1,3 +1,6 @@
+# Bash scripts
+*.sh
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -5,6 +8,9 @@ __pycache__/
 
 # C extensions
 *.so
+
+# DS store files
+*.DS_Store
 
 # Distribution / packaging
 .Python
@@ -36,6 +42,10 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+
+# internal data
+/internal_data/
+*/internal/*
 
 # Unit test / coverage reports
 htmlcov/
@@ -70,6 +80,9 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+
+# Slurm stuff:
+slurm*
 
 # PyBuilder
 target/
@@ -135,3 +148,6 @@ dmypy.json
 
 # other folders
 Share/
+
+# out files
+*.out

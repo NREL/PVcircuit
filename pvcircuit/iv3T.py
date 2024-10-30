@@ -196,7 +196,7 @@ class IV3T(object):
                     setattr(self, key, np.array(value))
 
             # raise error if the key is not in the class attributes
-            elif not key in list(self.__dict__.keys()):
+            elif key not in list(self.__dict__.keys()):
                 raise ValueError(f"invalid class attribute {key}")
             else:
                 setattr(self, key, value)

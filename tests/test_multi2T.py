@@ -62,10 +62,10 @@ def test_multi2T_str(dev2T):
 
     test_file = "Multi2T_str.txt"
     # write test case
-    # with open(Path().cwd().joinpath("tests","test_files", test_file), "w", encoding="utf8") as fout:
+    # with open(pvc.pvcpath.parent.joinpath("tests","test_files", test_file), "w", encoding="utf8") as fout:
     #     fout.write(dev2T.__str__())
 
-    with open(Path().cwd().joinpath("tests", "test_files", test_file), "r", encoding="utf8") as fin:
+    with open(pvc.pvcpath.parent.joinpath("tests", "test_files", test_file), "r", encoding="utf8") as fin:
         test_str = fin.read()
 
     np.testing.assert_string_equal(test_str, dev2T.__str__())
